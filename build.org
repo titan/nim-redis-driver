@@ -1,0 +1,17 @@
+#+STARTUP: indent
+
+* nimble
+#+begin_src nimscript :tangle ${BUILDDIR}/redis.nimble
+  version       = "0.1.0"
+  author        = "Titan"
+  description   = "The redis driver"
+  license       = "MIT"
+
+  # Dependencies
+
+  requires "nim >= 0.17.0"
+#+end_src
+* 编译设置
+#+begin_src nimscript :tangle ${BUILDDIR}/redis.nim.cfg
+  -d:release
+#+end_src

@@ -1,0 +1,2 @@
+BUILDDIR=/dev/shm/$(NAME)
+FSMFLAGS=--debug
