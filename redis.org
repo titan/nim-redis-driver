@@ -796,7 +796,6 @@
         timeout = this.timeout
       while lctx.sctx.done == false:
         var response = this.socket.recv(1024, timeout = timeout)
-        echo("received ", response)
         <<execute-fsm>>
       (lfsm, lctx) = eof[LexerContext](lfsm, lctx)
       return lctx.sctx.target.val

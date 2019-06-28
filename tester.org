@@ -2,11 +2,14 @@
 * 框架
 #+begin_src nim :tangle ${BUILDDIR}/tester.nim
   import unittest
+  import asyncdispatch
   import redis
 
   <<utilities>>
 
   <<sync-test-suite>>
+
+  <<async-test-suite>>
 #+end_src
 * 同步测试
 #+begin_src nim :noweb-ref sync-test-suite
@@ -26,6 +29,28 @@
 #+begin_src nim :noweb-ref sync-key-value
   test "key/value":
     let resp = redis.set("key", "value")
+
+    check:
+      resp == true
+#+end_src
+* 异步测试
+#+begin_src nim :noweb-ref async-test-suite
+  suite "Async Test":
+    let
+      redis: AsyncRedis = waitFor open_async()
+
+    setup:
+      discard
+
+    teardown:
+      discard
+
+    <<async-key-value>>
+#+end_src
+** key/value
+#+begin_src nim :noweb-ref async-key-value
+  test "key/value":
+    let resp = waitFor redis.set("key", "value")
 
     check:
       resp == true
