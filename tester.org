@@ -1,0 +1,36 @@
+#+STARTUP: indent
+* 框架
+#+begin_src nim :tangle ${BUILDDIR}/tester.nim
+  import unittest
+  import redis
+
+  <<utilities>>
+
+  <<sync-test-suite>>
+#+end_src
+* 同步测试
+#+begin_src nim :noweb-ref sync-test-suite
+  suite "Sync Test":
+    let
+      redis: Redis = open()
+
+    setup:
+      discard
+
+    teardown:
+      discard
+
+    <<sync-key-value>>
+#+end_src
+** key/value
+#+begin_src nim :noweb-ref sync-key-value
+  test "key/value":
+    let resp = redis.set("key", "value")
+
+    check:
+      resp == true
+#+end_src
+* 辅助方法
+** 框架
+#+begin_src nim :noweb-ref utilities
+#+end_src
