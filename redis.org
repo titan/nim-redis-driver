@@ -761,6 +761,8 @@
   <<key-value>>
 
   <<hash>>
+
+  <<list>>
 #+end_src
 ** open
 #+begin_src nim :noweb-ref open
@@ -1034,6 +1036,63 @@
   proc hset*(redis: Redis | AsyncRedis, key: string, field: string, value: string): Future[uint32] {.multisync.} =
     ## Sets field in the hash stored at key to value.
     let resp = await redis.exec("HSET", @[key, field, value])
+    result = cast[uint32](resp.toInt())
+#+end_src
+** list
+*** 框架
+#+begin_src nim :noweb-ref list
+  <<llen>>
+
+  <<lpop>>
+
+  <<lpush>>
+
+  <<lrange>>
+
+  <<rpop>>
+
+  <<rpush>>
+#+end_src
+*** llen
+#+begin_src nim :noweb-ref llen
+  proc llen*(redis: Redis | AsyncRedis, key: string): Future[uint32] {.multisync.} =
+    ## Returns the length of the list stored at key.
+    let resp = await redis.exec("LLEN", @[key])
+    result = cast[uint32](resp.toInt())
+#+end_src
+*** lpop
+#+begin_src nim :noweb-ref lpop
+  proc lpop*(redis: Redis | AsyncRedis, key: string): Future[Option[string]] {.multisync.} =
+    ## Removes and returns the first element of the list stored at key.
+    let resp = await redis.exec("LPOP", @[key])
+    result = resp.toString()
+#+end_src
+*** lpush
+#+begin_src nim :noweb-ref lpush
+  proc lpush*(redis: Redis | AsyncRedis, key: string, fields: seq[string]): Future[uint32] {.multisync.} =
+    ## Insert all the specified values at the head of the list stored at key.
+    let resp = await redis.exec("LPUSH", concat(@[key], fields))
+    result = cast[uint32](resp.toInt())
+#+end_src
+*** lrange
+#+begin_src nim :noweb-ref lrange
+  proc lrange*(redis: Redis | AsyncRedis, key: string, start: int, stop: int): Future[seq[string]] {.multisync.} =
+    ## Returns the specified elements of the list stored at key.
+    let resp = await redis.exec("LRANGE", @[key, $start, $stop])
+    result = resp.toStringArray()
+#+end_src
+*** rpop
+#+begin_src nim :noweb-ref rpop
+  proc rpop*(redis: Redis | AsyncRedis, key: string): Future[Option[string]] {.multisync.} =
+    ## Removes and returns the last element of the list stored at key.
+    let resp = await redis.exec("RPOP", @[key])
+    result = resp.toString()
+#+end_src
+*** rpush
+#+begin_src nim :noweb-ref rpush
+  proc rpush*(redis: Redis | AsyncRedis, key: string, fields: seq[string]): Future[uint32] {.multisync.} =
+    ## Insert all the specified values at the tail of the list stored at key.
+    let resp = await redis.exec("RPUSH", concat(@[key], fields))
     result = cast[uint32](resp.toInt())
 #+end_src
 * 辅助方法

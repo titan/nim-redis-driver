@@ -27,6 +27,8 @@
     <<sync-key-value>>
 
     <<sync-hash>>
+
+    <<sync-list>>
 #+end_src
 ** key/value
 #+begin_src nim :noweb-ref sync-key-value
@@ -64,6 +66,26 @@
       len(hmgetresp) == 4 and hmgetresp[0].isSome and hmgetresp[0].get() == "value" and hmgetresp[1].isSome and hmgetresp[1].get() == "value1" and hmgetresp[2].isSome and hmgetresp[2].get() == "value2" and hmgetresp[3].isNone
       hdelresp == 3
 #+end_src
+** list
+#+begin_src nim :noweb-ref sync-list
+  test "list":
+    let lpushresp = redis.lpush("list", @["field1"])
+    let rpushresp = redis.rpush("list", @["field2"])
+    let llenresp = redis.llen("list")
+    let lrangeresp = redis.lrange("list", 0, -1)
+    let lrangeresp2 = redis.lrange("list", 100, 1000)
+    let lpopresp = redis.lpop("list")
+    let rpopresp = redis.rpop("list")
+
+    check:
+      lpushresp == 1
+      rpushresp == 2
+      llenresp == 2
+      len(lrangeresp) == 2 and lrangeresp[0] == "field1" and lrangeresp[1] == "field2"
+      len(lrangeresp2) == 0
+      lpopresp.isSome and lpopresp.get() == "field1"
+      rpopresp.isSome and rpopresp.get() == "field2"
+#+end_src
 * 异步测试
 #+begin_src nim :noweb-ref async-test-suite
   suite "Async Test":
@@ -79,6 +101,8 @@
     <<async-key-value>>
 
     <<async-hash>>
+
+    <<async-list>>
 #+end_src
 ** key/value
 #+begin_src nim :noweb-ref async-key-value
@@ -115,6 +139,26 @@
       hmsetresp == true
       len(hmgetresp) == 4 and hmgetresp[0].isSome and hmgetresp[0].get() == "value" and hmgetresp[1].isSome and hmgetresp[1].get() == "value1" and hmgetresp[2].isSome and hmgetresp[2].get() == "value2" and hmgetresp[3].isNone
       hdelresp == 3
+#+end_src
+** list
+#+begin_src nim :noweb-ref async-list
+  test "list":
+    let lpushresp = waitFor redis.lpush("list", @["field1"])
+    let rpushresp = waitFor redis.rpush("list", @["field2"])
+    let llenresp = waitFor redis.llen("list")
+    let lrangeresp = waitFor redis.lrange("list", 0, -1)
+    let lrangeresp2 = waitFor redis.lrange("list", 100, 1000)
+    let lpopresp = waitFor redis.lpop("list")
+    let rpopresp = waitFor redis.rpop("list")
+
+    check:
+      lpushresp == 1
+      rpushresp == 2
+      llenresp == 2
+      len(lrangeresp) == 2 and lrangeresp[0] == "field1" and lrangeresp[1] == "field2"
+      len(lrangeresp2) == 0
+      lpopresp.isSome and lpopresp.get() == "field1"
+      rpopresp.isSome and rpopresp.get() == "field2"
 #+end_src
 * 辅助方法
 ** 框架
