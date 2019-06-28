@@ -923,9 +923,20 @@
 #+end_src
 *** expire
 #+begin_src nim :noweb-ref expire
+  proc expire*(redis: Redis | AsyncRedis, key: string, timeout: uint32): Future[bool] {.multisync.} =
+    ## Get the value of key
+    let resp = await redis.exec("EXPIRE", @[key, $timeout])
+    if resp.toInt() == 1:
+      result = true
+    else:
+      result = false
 #+end_src
 *** get
 #+begin_src nim :noweb-ref get
+  proc get*(redis: Redis | AsyncRedis, key: string): Future[Option[string]] {.multisync.} =
+    ## Get the value of key
+    let resp = await redis.exec("GET", @[key])
+    result = resp.toString()
 #+end_src
 *** set
 #+begin_src nim :noweb-ref set
@@ -940,6 +951,14 @@
 #+end_src
 *** setex
 #+begin_src nim :noweb-ref setex
+  proc setex*(redis: Redis | AsyncRedis, key: string, value: string, timeout: uint32): Future[bool] {.multisync.} =
+    ## Set key to hold the string value and set key to timeout after a given number of seconds.
+    let resp = await redis.exec("SET", @[key, value, "EX", $timeout])
+    let str = resp.toString()
+    if str.isSome() and str.get() == "OK":
+      result = true
+    else:
+      result = false
 #+end_src
 * 辅助方法
 ** 框架

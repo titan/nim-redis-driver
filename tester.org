@@ -3,6 +3,7 @@
 #+begin_src nim :tangle ${BUILDDIR}/tester.nim
   import unittest
   import asyncdispatch
+  import options
   import redis
 
   <<utilities>>
@@ -28,10 +29,18 @@
 ** key/value
 #+begin_src nim :noweb-ref sync-key-value
   test "key/value":
-    let resp = redis.set("key", "value")
+    let setresp = redis.set("key", "value")
+    let getresp = redis.get("key")
+    let expireresp = redis.expire("key", 1000)
+    let setexresp = redis.setex("key", "value", 1000)
+    let delresp = redis.del("key")
 
     check:
-      resp == true
+      setresp == true
+      getresp.isSome() and getresp.get() == "value"
+      expireresp == true
+      setexresp == true
+      delresp == 1
 #+end_src
 * 异步测试
 #+begin_src nim :noweb-ref async-test-suite
@@ -50,10 +59,18 @@
 ** key/value
 #+begin_src nim :noweb-ref async-key-value
   test "key/value":
-    let resp = waitFor redis.set("key", "value")
+    let setresp = waitFor redis.set("key", "value")
+    let getresp = waitFor redis.get("key")
+    let expireresp = waitFor redis.expire("key", 1000)
+    let setexresp = waitFor redis.setex("key", "value", 1000)
+    let delresp = waitFor redis.del("key")
 
     check:
-      resp == true
+      setresp == true
+      getresp.isSome() and getresp.get() == "value"
+      expireresp == true
+      setexresp == true
+      delresp == 1
 #+end_src
 * 辅助方法
 ** 框架
