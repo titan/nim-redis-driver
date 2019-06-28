@@ -25,6 +25,8 @@
       discard
 
     <<sync-key-value>>
+
+    <<sync-hash>>
 #+end_src
 ** key/value
 #+begin_src nim :noweb-ref sync-key-value
@@ -42,6 +44,26 @@
       setexresp == true
       delresp == 1
 #+end_src
+** hash
+#+begin_src nim :noweb-ref sync-hash
+  test "hash":
+    let hsetresp = redis.hset("hash", "key", "value")
+    let hgetresp = redis.hget("hash", "key")
+    let hlenresp = redis.hlen("hash")
+    let hkeysresp = redis.hkeys("hash")
+    let hmsetresp = redis.hmset("hash", @[("key1", "value1"), ("key2", "value2")])
+    let hmgetresp = redis.hmget("hash", @["key", "key1", "key2", "key3"])
+    let hdelresp = redis.hdel("hash", @["key", "key1", "key2"])
+
+    check:
+      hsetresp == 1
+      hgetresp.isSome and hgetresp.get() == "value"
+      hlenresp == 1
+      len(hkeysresp) == 1 and hkeysresp[0] == "key"
+      hmsetresp == true
+      len(hmgetresp) == 4 and hmgetresp[0].isSome and hmgetresp[0].get() == "value" and hmgetresp[1].isSome and hmgetresp[1].get() == "value1" and hmgetresp[2].isSome and hmgetresp[2].get() == "value2" and hmgetresp[3].isNone
+      hdelresp == 3
+#+end_src
 * 异步测试
 #+begin_src nim :noweb-ref async-test-suite
   suite "Async Test":
@@ -55,6 +77,8 @@
       discard
 
     <<async-key-value>>
+
+    <<async-hash>>
 #+end_src
 ** key/value
 #+begin_src nim :noweb-ref async-key-value
@@ -71,6 +95,26 @@
       expireresp == true
       setexresp == true
       delresp == 1
+#+end_src
+** hash
+#+begin_src nim :noweb-ref async-hash
+  test "hash":
+    let hsetresp = waitFor redis.hset("hash", "key", "value")
+    let hgetresp = waitFor redis.hget("hash", "key")
+    let hlenresp = waitFor redis.hlen("hash")
+    let hkeysresp = waitFor redis.hkeys("hash")
+    let hmsetresp = waitFor redis.hmset("hash", @[("key1", "value1"), ("key2", "value2")])
+    let hmgetresp = waitFor redis.hmget("hash", @["key", "key1", "key2", "key3"])
+    let hdelresp = waitFor redis.hdel("hash", @["key", "key1", "key2"])
+
+    check:
+      hsetresp == 1
+      hgetresp.isSome and hgetresp.get() == "value"
+      hlenresp == 1
+      len(hkeysresp) == 1 and hkeysresp[0] == "key"
+      hmsetresp == true
+      len(hmgetresp) == 4 and hmgetresp[0].isSome and hmgetresp[0].get() == "value" and hmgetresp[1].isSome and hmgetresp[1].get() == "value1" and hmgetresp[2].isSome and hmgetresp[2].get() == "value2" and hmgetresp[3].isNone
+      hdelresp == 3
 #+end_src
 * 辅助方法
 ** 框架

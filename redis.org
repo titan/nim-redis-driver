@@ -759,6 +759,8 @@
   <<exec>>
 
   <<key-value>>
+
+  <<hash>>
 #+end_src
 ** open
 #+begin_src nim :noweb-ref open
@@ -960,6 +962,80 @@
     else:
       result = false
 #+end_src
+** hash
+*** 框架
+#+begin_src nim :noweb-ref hash
+  <<hdel>>
+
+  <<hget>>
+
+  <<hkeys>>
+
+  <<hlen>>
+
+  <<hmget>>
+
+  <<hmset>>
+
+  <<hset>>
+#+end_src
+*** hdel
+#+begin_src nim :noweb-ref hdel
+  proc hdel*(redis: Redis | AsyncRedis, key: string, fields: seq[string]): Future[int] {.multisync.} =
+    ## Removes the specified fields from the hash stored at key.
+    let resp = await redis.exec("HDEL", concat(@[key], fields))
+    result = resp.toInt()
+#+end_src
+*** hget
+#+begin_src nim :noweb-ref hget
+  proc hget*(redis: Redis | AsyncRedis, key: string, field: string): Future[Option[string]] {.multisync.} =
+    ## Returns the value associated with field in the hash stored at key.
+    let resp = await redis.exec("HGET", @[key, field])
+    result = resp.toString()
+#+end_src
+*** hkeys
+#+begin_src nim :noweb-ref hkeys
+  proc hkeys*(redis: Redis | AsyncRedis, key: string): Future[seq[string]] {.multisync.} =
+    ## Returns all field names in the hash stored at key.
+    let resp = await redis.exec("HKEYS", @[key])
+    result = resp.toStringArray()
+#+end_src
+*** hlen
+#+begin_src nim :noweb-ref hlen
+  proc hlen*(redis: Redis | AsyncRedis, key: string): Future[uint32] {.multisync.} =
+    ## Returns the number of fields contained in the hash stored at key.
+    let resp = await redis.exec("HLEN", @[key])
+    result = cast[uint32](resp.toInt())
+#+end_src
+*** hmget
+#+begin_src nim :noweb-ref hmget
+  proc hmget*(redis: Redis | AsyncRedis, key: string, fields: seq[string]): Future[seq[Option[string]]] {.multisync.} =
+    ## Returns the values associated with the specified fields in the hash stored at key.
+    let resp = await redis.exec("HMGET", concat(@[key], fields))
+    result = resp.toOptionalStringArray()
+#+end_src
+*** hmset
+#+begin_src nim :noweb-ref hmset
+  proc hmset*(redis: Redis | AsyncRedis, key: string, pairs: seq[(string, string)]): Future[bool] {.multisync.} =
+    ## Sets the specified fields to their respective values in the hash stored at key.
+    var params = @[key]
+    for pair in pairs:
+      params.add(pair[0])
+      params.add(pair[1])
+    let resp = await redis.exec("HMSET", params)
+    let str = resp.toString()
+    if str.isSome() and str.get() == "OK":
+      result = true
+    else:
+      result = false
+#+end_src
+*** hset
+#+begin_src nim :noweb-ref hset
+  proc hset*(redis: Redis | AsyncRedis, key: string, field: string, value: string): Future[uint32] {.multisync.} =
+    ## Sets field in the hash stored at key to value.
+    let resp = await redis.exec("HSET", @[key, field, value])
+    result = cast[uint32](resp.toInt())
+#+end_src
 * 辅助方法
 ** 框架
 #+begin_src nim :noweb-ref utilities
@@ -1100,4 +1176,39 @@
       result = v.bulkstr
     else:
       result = none(string)
+
+  proc toStringArray(v: RedisValue): seq[string] =
+    if v.kind == rkArray:
+      if v.array.isNone:
+        return @[]
+      for item in v.array.get():
+        if item.kind == rkString:
+          result.add(item.str)
+        elif item.kind == rkError:
+          result.add(item.err)
+        elif item.kind == rkBulkString:
+          if item.bulkstr.isSome:
+            result.add(item.bulkstr.get())
+          else:
+            result.add("")
+        elif item.kind == rkInteger:
+          result.add($item.val)
+    else:
+      result = @[]
+
+  proc toOptionalStringArray(v: RedisValue): seq[Option[string]] =
+    if v.kind == rkArray:
+      if v.array.isNone:
+        return @[]
+      for item in v.array.get():
+        if item.kind == rkString:
+          result.add(some(item.str))
+        elif item.kind == rkError:
+          result.add(some(item.err))
+        elif item.kind == rkBulkString:
+          result.add(item.bulkstr)
+        elif item.kind == rkInteger:
+          result.add(some($item.val))
+    else:
+      result = @[]
 #+end_src
