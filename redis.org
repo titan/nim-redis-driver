@@ -31,13 +31,14 @@
 * 类型定义
 #+begin_src nim :noweb-ref type
   type
-    <<interface-type>>
 
-    <<data-type>>
+    <<syntax-context>>
 
     <<lexer-context>>
 
-    <<syntax-context>>
+    <<interface-type>>
+
+    <<data-type>>
 #+end_src
 ** 接口类型
 #+begin_src nim :noweb-ref interface-type
@@ -45,12 +46,12 @@
     socket: TSocket
     connected: bool
     timeout*: int
+    syntax_delegate: SyntaxActionDelegate[SyntaxContext]
+    lexer_delegate: LexerActionDelegate[LexerContext]
 
   Redis* = ref object of RedisBase[net.Socket]
-    pipeline*: seq[RedisValue]
 
   AsyncRedis* = ref object of RedisBase[asyncnet.AsyncSocket]
-    pipeline*: seq[RedisValue]
 #+end_src
 ** 数据类型
 #+begin_src nim :noweb-ref data-type
@@ -773,19 +774,97 @@
   proc open*(host = "localhost", port = 6379.Port, timeout=0): Redis =
     ## Open a connection to a redis server.
     result = Redis(socket: newSocket(buffered = false))
-    result.pipeline = @[]
     result.timeout = timeout
     result.socket.connect(host, port)
     result.connected = true
+
+    result.syntax_delegate = SyntaxActionDelegate[SyntaxContext](
+      shift: shift[SyntaxContext],
+      reduce_1_to_target: reduce_1_to_target[SyntaxContext],
+      set_done: set_done[SyntaxContext],
+      reduce_1_to_redisvalue: reduce_1_to_redisvalue[SyntaxContext],
+      clear_done: clear_done[SyntaxContext],
+      syntax_error: syntax_error[SyntaxContext],
+      convert_to_string: convert_to_string[SyntaxContext],
+      reduce_3_to_redisstring: reduce_3_to_redisstring[SyntaxContext],
+      reduce_3_to_rediserror: reduce_3_to_rediserror[SyntaxContext],
+      reduce_3_to_redisint: reduce_3_to_redisint[SyntaxContext],
+      reduce_5_to_redisbulkstring: reduce_5_to_redisbulkstring[SyntaxContext],
+      reduce_4_to_redisemptybulkstring: reduce_4_to_redisemptybulkstring[SyntaxContext],
+      reduce_3_to_redisnullbulkstring: reduce_3_to_redisnullbulkstring[SyntaxContext],
+      push_array_length: push_array_length[SyntaxContext],
+      reduce_1_to_redisarrayitems: reduce_1_to_redisarrayitems[SyntaxContext],
+      reduce_4_to_redisarray: reduce_4_to_redisarray[SyntaxContext],
+      pop_array_length: pop_array_length[SyntaxContext],
+      reduce_2_to_redisarrayitems: reduce_2_to_redisarrayitems[SyntaxContext],
+      reduce_3_to_redisarray: reduce_3_to_redisarray[SyntaxContext],
+      reduce_3_to_redisnullarray: reduce_3_to_redisnullarray[SyntaxContext],
+     )
+
+    result.lexer_delegate = LexerActionDelegate[LexerContext](
+      output_plus: output_plus[LexerContext],
+      output_colon: output_colon[LexerContext],
+      output_dollar: output_dollar[LexerContext],
+      output_asterisk: output_asterisk[LexerContext],
+      add_to_number: add_to_number[LexerContext],
+      add_to_string: add_to_string[LexerContext],
+      output_minus: output_minus[LexerContext],
+      add_minus_to_number: add_minus_to_number[LexerContext],
+      move_number_to_string: move_number_to_string[LexerContext],
+      output_number: output_number[LexerContext],
+      output_string: output_string[LexerContext],
+      output_crlf: output_crlf[LexerContext],
+      set_string_length: set_string_length[LexerContext],
+      clear_string_length: clear_string_length[LexerContext],
+    )
 #+end_src
 ** open_async
 #+begin_src nim :noweb-ref open_async
   proc open_async*(host = "localhost", port = 6379.Port): Future[AsyncRedis] {.async.} =
     ## Open an asynchronous connection to a redis server.
     result = AsyncRedis(socket: newAsyncSocket(buffered = false))
-    result.pipeline = @[]
     await result.socket.connect(host, port)
     result.connected = true
+
+    result.syntax_delegate = SyntaxActionDelegate[SyntaxContext](
+      shift: shift[SyntaxContext],
+      reduce_1_to_target: reduce_1_to_target[SyntaxContext],
+      set_done: set_done[SyntaxContext],
+      reduce_1_to_redisvalue: reduce_1_to_redisvalue[SyntaxContext],
+      clear_done: clear_done[SyntaxContext],
+      syntax_error: syntax_error[SyntaxContext],
+      convert_to_string: convert_to_string[SyntaxContext],
+      reduce_3_to_redisstring: reduce_3_to_redisstring[SyntaxContext],
+      reduce_3_to_rediserror: reduce_3_to_rediserror[SyntaxContext],
+      reduce_3_to_redisint: reduce_3_to_redisint[SyntaxContext],
+      reduce_5_to_redisbulkstring: reduce_5_to_redisbulkstring[SyntaxContext],
+      reduce_4_to_redisemptybulkstring: reduce_4_to_redisemptybulkstring[SyntaxContext],
+      reduce_3_to_redisnullbulkstring: reduce_3_to_redisnullbulkstring[SyntaxContext],
+      push_array_length: push_array_length[SyntaxContext],
+      reduce_1_to_redisarrayitems: reduce_1_to_redisarrayitems[SyntaxContext],
+      reduce_4_to_redisarray: reduce_4_to_redisarray[SyntaxContext],
+      pop_array_length: pop_array_length[SyntaxContext],
+      reduce_2_to_redisarrayitems: reduce_2_to_redisarrayitems[SyntaxContext],
+      reduce_3_to_redisarray: reduce_3_to_redisarray[SyntaxContext],
+      reduce_3_to_redisnullarray: reduce_3_to_redisnullarray[SyntaxContext],
+     )
+
+    result.lexer_delegate = LexerActionDelegate[LexerContext](
+      output_plus: output_plus[LexerContext],
+      output_colon: output_colon[LexerContext],
+      output_dollar: output_dollar[LexerContext],
+      output_asterisk: output_asterisk[LexerContext],
+      add_to_number: add_to_number[LexerContext],
+      add_to_string: add_to_string[LexerContext],
+      output_minus: output_minus[LexerContext],
+      add_minus_to_number: add_minus_to_number[LexerContext],
+      move_number_to_string: move_number_to_string[LexerContext],
+      output_number: output_number[LexerContext],
+      output_string: output_string[LexerContext],
+      output_crlf: output_crlf[LexerContext],
+      set_string_length: set_string_length[LexerContext],
+      clear_string_length: clear_string_length[LexerContext],
+    )
 #+end_src
 ** exec
 #+begin_src nim :noweb-ref exec
@@ -824,29 +903,7 @@
 #+end_src
 *** 初始化状态机
 #+begin_src nim :noweb-ref init-fsm
-  let sdgt = SyntaxActionDelegate[SyntaxContext](
-    shift: shift[SyntaxContext],
-    reduce_1_to_target: reduce_1_to_target[SyntaxContext],
-    set_done: set_done[SyntaxContext],
-    reduce_1_to_redisvalue: reduce_1_to_redisvalue[SyntaxContext],
-    clear_done: clear_done[SyntaxContext],
-    syntax_error: syntax_error[SyntaxContext],
-    convert_to_string: convert_to_string[SyntaxContext],
-    reduce_3_to_redisstring: reduce_3_to_redisstring[SyntaxContext],
-    reduce_3_to_rediserror: reduce_3_to_rediserror[SyntaxContext],
-    reduce_3_to_redisint: reduce_3_to_redisint[SyntaxContext],
-    reduce_5_to_redisbulkstring: reduce_5_to_redisbulkstring[SyntaxContext],
-    reduce_4_to_redisemptybulkstring: reduce_4_to_redisemptybulkstring[SyntaxContext],
-    reduce_3_to_redisnullbulkstring: reduce_3_to_redisnullbulkstring[SyntaxContext],
-    push_array_length: push_array_length[SyntaxContext],
-    reduce_1_to_redisarrayitems: reduce_1_to_redisarrayitems[SyntaxContext],
-    reduce_4_to_redisarray: reduce_4_to_redisarray[SyntaxContext],
-    pop_array_length: pop_array_length[SyntaxContext],
-    reduce_2_to_redisarrayitems: reduce_2_to_redisarrayitems[SyntaxContext],
-    reduce_3_to_redisarray: reduce_3_to_redisarray[SyntaxContext],
-    reduce_3_to_redisnullarray: reduce_3_to_redisnullarray[SyntaxContext],
-  )
-  var sfsm = newSyntaxStateMachine[SyntaxContext](sdgt)
+  var sfsm = newSyntaxStateMachine[SyntaxContext](this.syntax_delegate)
   var sctx: SyntaxContext = new(SyntaxContext)
   sctx.fsm = sfsm
   sctx.state_stack = @[]
@@ -862,23 +919,7 @@
   lctx.strlen = 0
   lctx.sfsm = sfsm
   lctx.sctx = sctx
-  let ldgt = LexerActionDelegate[LexerContext](
-    output_plus: output_plus[LexerContext],
-    output_colon: output_colon[LexerContext],
-    output_dollar: output_dollar[LexerContext],
-    output_asterisk: output_asterisk[LexerContext],
-    add_to_number: add_to_number[LexerContext],
-    add_to_string: add_to_string[LexerContext],
-    output_minus: output_minus[LexerContext],
-    add_minus_to_number: add_minus_to_number[LexerContext],
-    move_number_to_string: move_number_to_string[LexerContext],
-    output_number: output_number[LexerContext],
-    output_string: output_string[LexerContext],
-    output_crlf: output_crlf[LexerContext],
-    set_string_length: set_string_length[LexerContext],
-    clear_string_length: clear_string_length[LexerContext],
-  )
-  var lfsm = newLexerStateMachine[LexerContext](ldgt)
+  var lfsm = newLexerStateMachine[LexerContext](this.lexer_delegate)
 #+end_src
 *** 执行状态机
 #+begin_src nim :noweb-ref execute-fsm
