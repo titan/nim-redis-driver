@@ -5,6 +5,7 @@
   import asyncdispatch
   import options
   import redis
+  import tables
 
   <<utilities>>
 
@@ -19,7 +20,9 @@
       redis: Redis = open()
 
     setup:
-      discard
+      discard redis.del("hash")
+      discard redis.del("list")
+      discard redis.del("stream")
 
     teardown:
       discard
@@ -29,6 +32,8 @@
     <<sync-hash>>
 
     <<sync-list>>
+
+    <<sync-stream>>
 #+end_src
 ** key/value
 #+begin_src nim :noweb-ref sync-key-value
@@ -86,6 +91,45 @@
       lpopresp.isSome and lpopresp.get() == "field1"
       rpopresp.isSome and rpopresp.get() == "field2"
 #+end_src
+** stream
+#+begin_src nim :noweb-ref sync-stream
+  test "stream":
+    let xaddresp = redis.xadd("stream", @[("field1", "value1"), ("field2", "value2")], "0-1")
+    discard redis.xadd("stream", @[("field3", "value3"), ("field4", "value4")], "0-2")
+    let xlenresp = redis.xlen("stream")
+    let xrangeresp = redis.xrange("stream", count = 10)
+    let xrevrangeresp = redis.xrevrange("stream", count = 10)
+    let xreadresp = redis.xread(@[("stream", "0-1")])
+    let xgroupcreateresp = redis.xgroup_create("stream", "group")
+    let xgroupsetidresp = redis.xgroup_setid("stream", "group", "0-0")
+    let xreadgroupresp = redis.xreadgroup("group", "consumer", @[("stream", ">")])
+    let xpendingresp = redis.xpending("stream", "group")
+    let xpendingresp1 = redis.xpending("stream", "group", "0-1", "0-2", 1, "consumer")
+    let xclaimresp = redis.xclaim("stream", "group", "consumer", 0, @["0-1"])
+    let xackresp = redis.xack("stream", "group", @["0-1"])
+    let xgroupdelconsumerresp = redis.xgroup_delconsumer("stream", "group", "consumer")
+    let xgroupdestroyresp = redis.xgroup_destroy("stream", "group")
+    let xtrimresp = redis.xtrim("stream", 100)
+    let xdelresp = redis.xdel("stream", @["0-1", "0-2"])
+
+    check:
+      xaddresp.isSome and xaddresp.get() == "0-1"
+      xlenresp == 2
+      len(xrangeresp) == 2 and xrangeresp[0][0] == "0-1" and xrangeresp[1][0] == "0-2"
+      len(xrevrangeresp) == 2 and xrevrangeresp[0][0] == "0-2" and xrevrangeresp[1][0] == "0-1"
+      len(xreadresp) == 1 and xreadresp[0][0] == "stream" and xreadresp[0][1][0][0] == "0-2" and xreadresp[0][1][0][1]["field3"] == "value3" and xreadresp[0][1][0][1]["field4"] == "value4"
+      xgroupcreateresp == true
+      xgroupsetidresp == true
+      len(xreadgroupresp) == 1 and xreadgroupresp[0][0] == "stream" and len(xreadgroupresp[0][1]) == 2 and xreadgroupresp[0][1][0][0] == "0-1" and xreadgroupresp[0][1][0][1]["field1"] == "value1" and xreadgroupresp[0][1][0][1]["field2"] == "value2" and xreadgroupresp[0][1][1][0] == "0-2" and xreadgroupresp[0][1][1][1]["field3"] == "value3" and xreadgroupresp[0][1][1][1]["field4"] == "value4"
+      xpendingresp[0] == 2 and xpendingresp[1] == "0-1" and xpendingresp[2] == "0-2" and len(xpendingresp[3]) == 1 and xpendingresp[3][0][0] == "consumer" and xpendingresp[3][0][1] == 2
+      len(xpendingresp1) == 1 and xpendingresp1[0][0] == "0-1" and xpendingresp1[0][1] == "consumer"
+      len(xclaimresp) == 1 and xclaimresp[0][0] == "0-1" and xclaimresp[0][1]["field1"] == "value1" and xclaimresp[0][1]["field2"] == "value2"
+      xackresp == 1
+      xgroupdelconsumerresp == 1
+      xgroupdestroyresp == 1
+      xtrimresp == 0
+      xdelresp == 2
+#+end_src
 * 异步测试
 #+begin_src nim :noweb-ref async-test-suite
   suite "Async Test":
@@ -93,7 +137,9 @@
       redis: AsyncRedis = waitFor open_async()
 
     setup:
-      discard
+      discard waitFor redis.del("hash")
+      discard waitFor redis.del("list")
+      discard waitFor redis.del("stream")
 
     teardown:
       discard
@@ -103,6 +149,8 @@
     <<async-hash>>
 
     <<async-list>>
+
+    <<async-stream>>
 #+end_src
 ** key/value
 #+begin_src nim :noweb-ref async-key-value
@@ -159,6 +207,45 @@
       len(lrangeresp2) == 0
       lpopresp.isSome and lpopresp.get() == "field1"
       rpopresp.isSome and rpopresp.get() == "field2"
+#+end_src
+** stream
+#+begin_src nim :noweb-ref async-stream
+  test "stream":
+    let xaddresp = waitFor redis.xadd("stream", @[("field1", "value1"), ("field2", "value2")], "0-1")
+    discard waitFor redis.xadd("stream", @[("field3", "value3"), ("field4", "value4")], "0-2")
+    let xlenresp = waitFor redis.xlen("stream")
+    let xrangeresp = waitFor redis.xrange("stream", count = 10)
+    let xrevrangeresp = waitFor redis.xrevrange("stream", count = 10)
+    let xreadresp = waitFor redis.xread(@[("stream", "0-1")])
+    let xgroupcreateresp = waitFor redis.xgroup_create("stream", "group")
+    let xgroupsetidresp = waitFor redis.xgroup_setid("stream", "group", "0-0")
+    let xreadgroupresp = waitFor redis.xreadgroup("group", "consumer", @[("stream", ">")])
+    let xpendingresp = waitFor redis.xpending("stream", "group")
+    let xpendingresp1 = waitFor redis.xpending("stream", "group", "0-1", "0-2", 1, "consumer")
+    let xclaimresp = waitFor redis.xclaim("stream", "group", "consumer", 0, @["0-1"])
+    let xackresp = waitFor redis.xack("stream", "group", @["0-1"])
+    let xgroupdelconsumerresp = waitFor redis.xgroup_delconsumer("stream", "group", "consumer")
+    let xgroupdestroyresp = waitFor redis.xgroup_destroy("stream", "group")
+    let xtrimresp = waitFor redis.xtrim("stream", 100)
+    let xdelresp = waitFor redis.xdel("stream", @["0-1", "0-2"])
+
+    check:
+      xaddresp.isSome and xaddresp.get() == "0-1"
+      xlenresp == 2
+      len(xrangeresp) == 2 and xrangeresp[0][0] == "0-1" and xrangeresp[1][0] == "0-2"
+      len(xrevrangeresp) == 2 and xrevrangeresp[0][0] == "0-2" and xrevrangeresp[1][0] == "0-1"
+      len(xreadresp) == 1 and xreadresp[0][0] == "stream" and xreadresp[0][1][0][0] == "0-2" and xreadresp[0][1][0][1]["field3"] == "value3" and xreadresp[0][1][0][1]["field4"] == "value4"
+      xgroupcreateresp == true
+      xgroupsetidresp == true
+      len(xreadgroupresp) == 1 and xreadgroupresp[0][0] == "stream" and len(xreadgroupresp[0][1]) == 2 and xreadgroupresp[0][1][0][0] == "0-1" and xreadgroupresp[0][1][0][1]["field1"] == "value1" and xreadgroupresp[0][1][0][1]["field2"] == "value2" and xreadgroupresp[0][1][1][0] == "0-2" and xreadgroupresp[0][1][1][1]["field3"] == "value3" and xreadgroupresp[0][1][1][1]["field4"] == "value4"
+      xpendingresp[0] == 2 and xpendingresp[1] == "0-1" and xpendingresp[2] == "0-2" and len(xpendingresp[3]) == 1 and xpendingresp[3][0][0] == "consumer" and xpendingresp[3][0][1] == 2
+      len(xpendingresp1) == 1 and xpendingresp1[0][0] == "0-1" and xpendingresp1[0][1] == "consumer"
+      len(xclaimresp) == 1 and xclaimresp[0][0] == "0-1" and xclaimresp[0][1]["field1"] == "value1" and xclaimresp[0][1]["field2"] == "value2"
+      xackresp == 1
+      xgroupdelconsumerresp == 1
+      xgroupdestroyresp == 1
+      xtrimresp == 0
+      xdelresp == 2
 #+end_src
 * 辅助方法
 ** 框架

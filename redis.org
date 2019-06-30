@@ -14,7 +14,7 @@
 
 * 基本框架
 #+begin_src nim :tangle ${BUILDDIR}/redis.nim
-  import asyncdispatch, asyncnet, deques, net, options, sequtils, strutils
+  import asyncdispatch, asyncnet, deques, net, options, sequtils, strutils, tables
   import redis/lexer
   import redis/syntax
 
@@ -84,6 +84,8 @@
 
   RedisInt = ':' number '\r\n'
 
+  RedisInt = ':' '0' '\r\n'
+
   RedisBulkString = '$' number '\r\n' string '\r\n'
 
   RedisEmptyBulkString = '$' '0' '\r\n' '\r\n'
@@ -122,7 +124,7 @@
   |                       | ----                  | ----                  | ----                  | ----                  | ----                  | ----                | ----                  |                   |                       |                    |                            |               |
   | INIT                  | +                     | -                     |                       | $                     |                       | NUMBER              | STRING                |                   |                       |                    |                            |               |
   +-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+---------------------+-----------------------+-------------------+-----------------------+--------------------+----------------------------+---------------+
-  |                       | output minus          |                       | output minus          | output minus          | output minus          | add minus to number |                       |                   |                       |                    |                            |               |
+  |                       | output minus          |                       | output minus          | output minus          | output minus          | add minus to number | output minus          |                   |                       |                    |                            |               |
   |                       | output plus           | output minus          | output colon          | output dollar         | output asterisk       | add to number       | add to string         | output minus      | output minus          |                    |                            |               |
   |                       | ----                  | ----                  | ----                  | ----                  | ----                  | ----                | ----                  | ----              | ----                  |                    |                            |               |
   | -                     | INIT                  |                       | INIT                  | INIT                  | INIT                  | NUMBER              | - STRING              | CR                | CR                    |                    |                            |               |
@@ -409,9 +411,9 @@
   |                                                          | ----               | ----                        | ----                        | ----                        | ----                        | ----                        | ----                        | ----                        | ----                        | ----                              | ----                                                | ----                                                     | ----                             | ----                           | ----                                                | ----                                                | ----                                                | ----                                                | ----                                             | ----                                                     | ----                              |
   | RedisError = "-" string · "\r\n"                         |                    |                             |                             |                             |                             |                             |                             |                             |                             |                                   |                                                     |                                                          |                                  |                                |                                                     |                                                     |                                                     |                                                     |                                                  |                                                          |                                   |
   +----------------------------------------------------------+--------------------+-----------------------------+-----------------------------+-----------------------------+-----------------------------+-----------------------------+-----------------------------+-----------------------------+-----------------------------+-----------------------------------+-----------------------------------------------------+----------------------------------------------------------+----------------------------------+--------------------------------+-----------------------------------------------------+-----------------------------------------------------+-----------------------------------------------------+-----------------------------------------------------+--------------------------------------------------+----------------------------------------------------------+-----------------------------------+
-  |                                                          | syntax error       | syntax error                | syntax error                | syntax error                | syntax error                | syntax error                | syntax error                | syntax error                | syntax error                | syntax error                      | syntax error                                        | syntax error                                             | syntax error                     | syntax error                   | shift                                               | syntax error                                        | syntax error                                        | syntax error                                        | syntax error                                     | syntax error                                             | syntax error                      |
+  |                                                          | syntax error       | syntax error                | syntax error                | syntax error                | syntax error                | syntax error                | syntax error                | syntax error                | syntax error                | syntax error                      | syntax error                                        | syntax error                                             | syntax error                     | syntax error                   | shift                                               | syntax error                                        | shift                                               | syntax error                                        | syntax error                                     | syntax error                                             | syntax error                      |
   |                                                          | ----               | ----                        | ----                        | ----                        | ----                        | ----                        | ----                        | ----                        | ----                        | ----                              | ----                                                | ----                                                     | ----                             | ----                           | ----                                                | ----                                                | ----                                                | ----                                                | ----                                             | ----                                                     | ----                              |
-  | RedisInt = ":" · number "\r\n"                           |                    |                             |                             |                             |                             |                             |                             |                             |                             |                                   |                                                     |                                                          |                                  |                                | RedisInt = ":" number · "\r\n"                      |                                                     |                                                     |                                                     |                                                  |                                                          |                                   |
+  | RedisInt = ":" · number "\r\n"                           |                    |                             |                             |                             |                             |                             |                             |                             |                             |                                   |                                                     |                                                          |                                  |                                | RedisInt = ":" number · "\r\n"                      |                                                     | RedisInt = ":" number · "\r\n"                      |                                                     |                                                  |                                                          |                                   |
   +----------------------------------------------------------+--------------------+-----------------------------+-----------------------------+-----------------------------+-----------------------------+-----------------------------+-----------------------------+-----------------------------+-----------------------------+-----------------------------------+-----------------------------------------------------+----------------------------------------------------------+----------------------------------+--------------------------------+-----------------------------------------------------+-----------------------------------------------------+-----------------------------------------------------+-----------------------------------------------------+--------------------------------------------------+----------------------------------------------------------+-----------------------------------+
   |                                                          |                    |                             |                             |                             |                             |                             |                             |                             |                             |                                   |                                                     | shift                                                    |                                  |                                |                                                     |                                                     |                                                     |                                                     |                                                  |                                                          |                                   |
   |                                                          | syntax error       | syntax error                | syntax error                | syntax error                | syntax error                | syntax error                | syntax error                | syntax error                | syntax error                | syntax error                      | syntax error                                        | reduce 3 to RedisInt                                     | syntax error                     | syntax error                   | syntax error                                        | syntax error                                        | syntax error                                        | syntax error                                        | syntax error                                     | syntax error                                             | syntax error                      |
@@ -763,6 +765,8 @@
   <<hash>>
 
   <<list>>
+
+  <<stream>>
 #+end_src
 ** open
 #+begin_src nim :noweb-ref open
@@ -1020,11 +1024,11 @@
 #+begin_src nim :noweb-ref hmset
   proc hmset*(redis: Redis | AsyncRedis, key: string, pairs: seq[(string, string)]): Future[bool] {.multisync.} =
     ## Sets the specified fields to their respective values in the hash stored at key.
-    var params = @[key]
+    var args = @[key]
     for pair in pairs:
-      params.add(pair[0])
-      params.add(pair[1])
-    let resp = await redis.exec("HMSET", params)
+      args.add(pair[0])
+      args.add(pair[1])
+    let resp = await redis.exec("HMSET", args)
     let str = resp.toString()
     if str.isSome() and str.get() == "OK":
       result = true
@@ -1093,6 +1097,309 @@
   proc rpush*(redis: Redis | AsyncRedis, key: string, fields: seq[string]): Future[uint32] {.multisync.} =
     ## Insert all the specified values at the tail of the list stored at key.
     let resp = await redis.exec("RPUSH", concat(@[key], fields))
+    result = cast[uint32](resp.toInt())
+#+end_src
+** stream
+*** 框架
+#+begin_src nim :noweb-ref stream
+  <<xack>>
+
+  <<xadd>>
+
+  <<xclaim>>
+
+  <<xdel>>
+
+  <<xgroup-create>>
+
+  <<xgroup-setid>>
+
+  <<xgroup-destroy>>
+
+  <<xgroup-delconsumer>>
+
+  <<xlen>>
+
+  <<xpending>>
+
+  <<xrange>>
+
+  <<xread>>
+
+  <<xreadgroup>>
+
+  <<xrevrange>>
+
+  <<xtrim>>
+#+end_src
+*** xack
+#+begin_src nim :noweb-ref xack
+  proc xack*(redis: Redis | AsyncRedis, key: string, group: string, ids: seq[string]): Future[uint32] {.multisync.} =
+    ## The XACK command removes one or multiple messages from the
+    ## pending entries list (PEL) of a stream consumer group. The
+    ## command returns the number of messages successfully acknowledged.
+    let resp = await redis.exec("XACK", concat(@[key, group], ids))
+    result = cast[uint32](resp.toInt())
+#+end_src
+*** xadd
+#+begin_src nim :noweb-ref xadd
+  proc xadd*(redis: Redis | AsyncRedis, key: string, pairs: seq[(string, string)], id: string = "*", maxlen: uint32 = 0): Future[Option[string]] {.multisync.} =
+    ## Appends the specified stream entry to the stream at the specified
+    ## key. If the key does not exist, as a side effect of running this
+    ## command the key is created with a stream value. The command
+    ## returns the ID of the added entry.
+    var args = @[key]
+    if maxlen != 0:
+      args.add("MAXLEN")
+      args.add("~")
+      args.add($maxlen)
+    args.add(id)
+    for pair in pairs:
+      args.add(pair[0])
+      args.add(pair[1])
+    let resp = await redis.exec("XADD", args)
+    result = resp.toString()
+#+end_src
+*** xclaim
+#+begin_src nim :noweb-ref xclaim
+  proc xclaim*(redis: Redis | AsyncRedis, key: string, group: string, consumer: string, minidletime: uint32, ids: seq[string], idle: uint32 = 0, time: uint32 = 0, retrycount: uint32 = 0, force: bool = false): Future[seq[(string, TableRef[string, string])]] {.multisync.} =
+    ## In the context of a stream consumer group, this command changes
+    ## the ownership of a pending message, so that the new owner is the
+    ## consumer specified as the command argument. The command returns
+    ## all the messages successfully claimed, in the same format as
+    ## XRANGE.
+    var args = concat(@[key, group, consumer, $minidletime], ids)
+    if idle != 0:
+      args.add("IDLE")
+      args.add($idle)
+    if time != 0:
+      args.add("TIME")
+      args.add($time)
+    if retrycount != 0:
+      args.add("RETRYCOUNT")
+      args.add($retrycount)
+    if force:
+      args.add("FORCE")
+    let resp = await redis.exec("XCLAIM", args)
+    result = resp.toSequenceTupleTable()
+#+end_src
+*** xdel
+#+begin_src nim :noweb-ref xdel
+  proc xdel*(redis: Redis | AsyncRedis, key: string, ids: seq[string]): Future[uint32] {.multisync.} =
+    ## Removes the specified entries from a stream, and returns the
+    ## number of entries deleted, that may be different from the number
+    ## of IDs passed to the command in case certain IDs do not
+    ## exist. The command return the number of entries actually deleted.
+    let resp = await redis.exec("XDEL", concat(@[key], ids))
+    result = cast[uint32](resp.toInt())
+#+end_src
+*** xgroup_create
+#+begin_src nim :noweb-ref xgroup-create
+  proc xgroup_create*(redis: Redis | AsyncRedis, key: string, groupname: string, id: string = "$"): Future[bool] {.multisync.} =
+    ## Create a new consumer group associated with a stream.
+    let resp = await redis.exec("XGROUP", @["CREATE", key, groupname, id])
+    let str = resp.toString()
+    if str.isSome() and str.get() == "OK":
+      result = true
+    else:
+      result = false
+#+end_src
+*** xgroup_setid
+#+begin_src nim :noweb-ref xgroup-setid
+  proc xgroup_setid*(redis: Redis | AsyncRedis, key: string, groupname: string, id: string = "$"): Future[bool] {.multisync.} =
+    ## Set the consumer group last delivered ID to something else.
+    let resp = await redis.exec("XGROUP", @["SETID", key, groupname, id])
+    let str = resp.toString()
+    if str.isSome() and str.get() == "OK":
+      result = true
+    else:
+      result = false
+#+end_src
+*** xgroup_destroy
+#+begin_src nim :noweb-ref xgroup-destroy
+  proc xgroup_destroy*(redis: Redis | AsyncRedis, key: string, groupname: string): Future[uint32] {.multisync.} =
+    ## Destroy a consumer group.
+    let resp = await redis.exec("XGROUP", @["DESTROY", key, groupname])
+    result = cast[uint32](resp.toInt())
+#+end_src
+*** xgroup_delconsumer
+#+begin_src nim :noweb-ref xgroup-delconsumer
+  proc xgroup_delconsumer*(redis: Redis | AsyncRedis, key: string, groupname: string, consumername: string): Future[uint32] {.multisync.} =
+    ## Remove a specific consumer from a consumer group.
+    let resp = await redis.exec("XGROUP", @["DELCONSUMER", key, groupname, consumername])
+    result = cast[uint32](resp.toInt())
+#+end_src
+*** xlen
+#+begin_src nim :noweb-ref xlen
+  proc xlen*(redis: Redis | AsyncRedis, key: string): Future[uint32] {.multisync.} =
+    ## Returns the number of entries inside a stream. If the specified
+    ## key does not exist the command returns zero, as if the stream was
+    ## empty.
+    let resp = await redis.exec("XLEN", @[key])
+    result = cast[uint32](resp.toInt())
+#+end_src
+*** xpending
+#+begin_src nim :noweb-ref xpending
+  proc xpending*(redis: Redis | AsyncRedis, key: string, group: string): Future[(uint32, string, string, seq[(string, uint32)])] {.multisync.} =
+    ## Fetching data from a stream via a consumer group, and not
+    ## acknowledging such data, has the effect of creating pending
+    ## entries.
+    ##
+    ## or each message four attributes are returned:
+    ## 1. The ID of the message.
+    ##
+    ## 2. The name of the consumer that fetched the message and has
+    ## still to acknowledge it. We call it the current owner of the
+    ## message.
+    ##
+    ## 3.The number of milliseconds that elapsed since the last time
+    ## this message was delivered to this consumer.
+    ##
+    ## 4.The number of times this message was delivered.
+    let resp = await redis.exec("XPENDING", @[key, group])
+    var pairs: seq[(string, uint32)] = @[]
+    if resp.kind == rkArray and resp.array.isSome and len(resp.array.get()) == 4:
+      let
+        array = resp.array.get()
+        total = if array[0].kind == rkInteger: array[0].val else: 0
+        start = if array[1].kind == rkBulkString and array[1].bulkstr.isSome: array[1].bulkstr.get() else: ""
+        stop = if array[2].kind == rkBulkString and array[2].bulkstr.isSome: array[2].bulkstr.get() else: ""
+        consumers = if array[3].kind == rkArray and array[3].array.isSome: array[3].array.get() else: @[]
+      for c in consumers:
+        if c.kind == rkArray and c.array.isSome and len(c.array.get()) == 2:
+          let
+            pair = c.array.get()
+            consumer = if pair[0].kind == rkBulkString and pair[0].bulkstr.isSome: pair[0].bulkstr.get() else: ""
+            num = if pair[1].kind == rkBulkString and pair[1].bulkstr.isSome: pair[1].bulkstr.get().parseInt() else: 0
+          pairs.add((consumer, cast[uint32](num)))
+      result = (cast[uint32](total), start, stop, pairs)
+    else:
+      result = (0'u32, "", "", pairs)
+
+  proc xpending*(redis: Redis | AsyncRedis, key: string, group: string, start: string, stop: string, count: uint32, consumer: string = ""): Future[seq[(string, string, uint32, uint32)]] {.multisync.} =
+    ## Fetching data from a stream via a consumer group, and not
+    ## acknowledging such data, has the effect of creating pending
+    ## entries.
+    ##
+    ## or each message four attributes are returned:
+    ## 1. The ID of the message.
+    ##
+    ## 2. The name of the consumer that fetched the message and has
+    ## still to acknowledge it. We call it the current owner of the
+    ## message.
+    ##
+    ## 3.The number of milliseconds that elapsed since the last time
+    ## this message was delivered to this consumer.
+    ##
+    ## 4.The number of times this message was delivered.
+    var args = @[key, group, $start, $stop, $count]
+    if consumer != "":
+      args.add(consumer)
+    let resp = await redis.exec("XPENDING", args)
+    result = @[]
+    if resp.kind == rkArray and resp.array.isSome:
+      for item in resp.array.get():
+        if item.kind == rkArray and item.array.isSome and len(item.array.get()) == 4:
+          let
+            array = item.array.get()
+            id = if array[0].kind == rkBulkString and array[0].bulkstr.isSome: array[0].bulkstr.get() else: ""
+            consumername = if array[1].kind == rkBulkString and array[1].bulkstr.isSome: array[1].bulkstr.get() else: ""
+            elapsed = if array[2].kind == rkInteger: cast[uint32](array[2].val) else: 0
+            delivered = if array[3].kind == rkInteger: cast[uint32](array[3].val) else: 0
+          result.add((id, consumername, elapsed, delivered))
+#+end_src
+*** xrange
+#+begin_src nim :noweb-ref xrange
+  proc xrange*(redis: Redis | AsyncRedis, key: string, start: string = "-", stop: string = "+", count: uint32 = 0): Future[seq[(string, TableRef[string, string])]] {.multisync.} =
+    ## The command returns the stream entries matching a given range of
+    ## IDs. The command returns the entries with IDs matching the
+    ## specified range.
+    var args = @[key, start, stop]
+    if count != 0:
+      args.add("COUNT")
+      args.add($count)
+    let resp = await redis.exec("XRANGE", args)
+    result = resp.toSequenceTupleTable()
+#+end_src
+*** xread
+#+begin_src nim :noweb-ref xread
+  proc xread*(redis: Redis | AsyncRedis, keyids: seq[(string, string)], count: uint32 = 0, timeout: uint32 = 0): Future[seq[(string, seq[(string, TableRef[string, string])])]] {.multisync.} =
+    ## Read data from one or multiple streams, only returning entries
+    ## with an ID greater than the last received ID reported by the
+    ## caller. This command has an option to block if items are not
+    ## available.
+    ##
+    ## The command returns an array of results: each element of the
+    ## returned array is an array composed of a two element containing
+    ## the key name and the entries reported for that key. The entries
+    ## reported are full stream entries, having IDs and the list of all
+    ## the fields and values.
+    var args: seq[string] = @[]
+    if count != 0:
+      args.add("COUNT")
+      args.add($count)
+    if timeout != 0:
+      args.add("BLOCK")
+      args.add($timeout)
+    args.add("STREAMS")
+    var
+      keys: seq[string] = @[]
+      ids: seq[string] = @[]
+    for keyids in keyids:
+      keys.add(keyids[0])
+      ids.add(keyids[1])
+    let resp = await redis.exec("XREAD", concat(args, keys, ids))
+    <<get-xread-result>>
+#+end_src
+*** xreadgroup
+#+begin_src nim :noweb-ref xreadgroup
+  proc xreadgroup*(redis: Redis | AsyncRedis, group: string, consumer: string, keyids: seq[(string, string)], count: uint32 = 0, timeout: uint32 = 0, noack: bool = false): Future[seq[(string, seq[(string, TableRef[string, string])])]] {.multisync.} =
+    ## The XREADGROUP command is a special version of the XREAD command
+    ## with support for consumer groups.
+    ##
+    ## The command returns an array of results: each element of the
+    ## returned array is an array composed of a two element containing
+    ## the key name and the entries reported for that key. The entries
+    ## reported are full stream entries, having IDs and the list of all
+    ## the fields and values.
+    var args = @["GROUP", group, consumer]
+    if count != 0:
+      args.add("COUNT")
+      args.add($count)
+    if timeout != 0:
+      args.add("BLOCK")
+      args.add($timeout)
+    if noack:
+      args.add("NOACK")
+    args.add("STREAMS")
+    var
+      keys: seq[string] = @[]
+      ids: seq[string] = @[]
+    for keyid in keyids:
+      keys.add(keyid[0])
+      ids.add(keyid[1])
+    let resp = await redis.exec("XREADGROUP", concat(args, keys, ids))
+    <<get-xread-result>>
+#+end_src
+*** xrevrange
+#+begin_src nim :noweb-ref xrevrange
+  proc xrevrange*(redis: Redis | AsyncRedis, key: string, stop: string = "+", start: string = "-", count: uint32 = 0): Future[seq[(string, TableRef[string, string])]] {.multisync.} =
+    ## This command is exactly like XRANGE, but with the notable
+    ## difference of returning the entries in reverse order, and also
+    ## taking the start-end range in reverse order
+    var args = @[key, stop, start]
+    if count != 0:
+      args.add("COUNT")
+      args.add($count)
+    let resp = await redis.exec("XREVRANGE", args)
+    result = resp.toSequenceTupleTable()
+#+end_src
+*** xtrim
+#+begin_src nim :noweb-ref xtrim
+  proc xtrim*(redis: Redis | AsyncRedis, key: string, count: uint32): Future[uint32] {.multisync.} =
+    ## XTRIM trims the stream to a given number of items, evicting older
+    ## items (items with lower IDs) if needed.
+    let resp = await redis.exec("XTRIM", @[key, "MAXLEN", "~", $count])
     result = cast[uint32](resp.toInt())
 #+end_src
 * 辅助方法
@@ -1270,4 +1577,36 @@
           result.add(some($item.val))
     else:
       result = @[]
+
+  proc toTable(v: RedisValue): TableRef[string, string] =
+    result = newTable[string, string]()
+    if v.kind == rkArray:
+      if v.array.isSome:
+        let array = v.array.get()
+        for i in 0..int(len(array)/2):
+          let field = if array[i].kind == rkBulkString and array[i].bulkstr.isSome: array[i].bulkstr.get() else: ""
+          let value = if array[i + 1].kind == rkBulkString and array[i + 1].bulkstr.isSome: array[i + 1].bulkstr.get() else: ""
+          result[field] = value
+
+  proc toSequenceTupleTable(v: RedisValue): seq[(string, TableRef[string, string])] =
+    result = @[]
+    if v.kind == rkArray and v.array.isSome:
+      for elements in v.array.get():
+        if elements.kind == rkArray and elements.array.isSome and len(elements.array.get()) == 2:
+          let array = elements.array.get()
+          let id = if array[0].kind == rkBulkString and array[0].bulkstr.isSome: array[0].bulkstr.get() else: ""
+          result.add((id, toTable(array[1])))
+#+end_src
+** 获取 xread 结果
+#+begin_src nim :noweb-ref get-xread-result
+  result = @[]
+  if resp.kind == rkArray:
+    if resp.array.isSome:
+      let array = resp.array.get()
+      for item in array:
+        if item.kind == rkArray and item.array.isSome:
+          let elements = item.array.get()
+          let stream = if elements[0].kind == rkBulkString and elements[0].bulkstr.isSome: elements[0].bulkstr.get() else: ""
+          if elements[1].kind == rkArray:
+            result.add((stream, elements[1].toSequenceTupleTable()))
 #+end_src
