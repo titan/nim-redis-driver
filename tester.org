@@ -77,6 +77,8 @@
     let lpushresp = redis.lpush("list", @["field1"])
     let rpushresp = redis.rpush("list", @["field2"])
     let llenresp = redis.llen("list")
+    let lpushresp2 = redis.lpush("list", @["to-remove"])
+    let lremresp = redis.lrem("list", "to-remove")
     let lrangeresp = redis.lrange("list", 0, -1)
     let lrangeresp2 = redis.lrange("list", 100, 1000)
     let lpopresp = redis.lpop("list")
@@ -86,6 +88,7 @@
       lpushresp == 1
       rpushresp == 2
       llenresp == 2
+      lremresp == 1
       len(lrangeresp) == 2 and lrangeresp[0] == "field1" and lrangeresp[1] == "field2"
       len(lrangeresp2) == 0
       lpopresp.isSome and lpopresp.get() == "field1"
@@ -194,6 +197,8 @@
     let lpushresp = waitFor redis.lpush("list", @["field1"])
     let rpushresp = waitFor redis.rpush("list", @["field2"])
     let llenresp = waitFor redis.llen("list")
+    let lpushresp2 = waitFor redis.lpush("list", @["to-remove"])
+    let lremresp = waitFor redis.lrem("list", "to-remove")
     let lrangeresp = waitFor redis.lrange("list", 0, -1)
     let lrangeresp2 = waitFor redis.lrange("list", 100, 1000)
     let lpopresp = waitFor redis.lpop("list")
@@ -203,6 +208,7 @@
       lpushresp == 1
       rpushresp == 2
       llenresp == 2
+      lremresp == 1
       len(lrangeresp) == 2 and lrangeresp[0] == "field1" and lrangeresp[1] == "field2"
       len(lrangeresp2) == 0
       lpopresp.isSome and lpopresp.get() == "field1"

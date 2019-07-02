@@ -1141,6 +1141,8 @@
 
   <<lrange>>
 
+  <<lrem>>
+
   <<rpop>>
 
   <<rpush>>
@@ -1172,6 +1174,23 @@
     ## Returns the specified elements of the list stored at key.
     let resp = await redis.exec("LRANGE", key, $start, $stop)
     result = resp.toStringArray()
+#+end_src
+*** lrem
+#+begin_src nim :noweb-ref lrem
+  proc lrem*(redis: Redis | AsyncRedis, key: string, value: string, count: int = 0): Future[uint32] {.multisync.} =
+    ## Removes the first count occurrences of elements equal to value
+    ## from the list stored at key. The count argument influences the
+    ## operation in the following ways:
+    ##
+    ## count > 0: Remove elements equal to value moving from head to tail.
+    ##
+    ## count < 0: Remove elements equal to value moving from tail to head.
+    ##
+    ## count = 0: Remove all elements equal to value.
+    ##
+    ## Return the number of removed elements.
+    let resp = await redis.exec("LREM", key, $count, value)
+    result = cast[uint32](resp.toInt())
 #+end_src
 *** rpop
 #+begin_src nim :noweb-ref rpop
