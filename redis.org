@@ -1002,6 +1002,8 @@
 #+begin_src nim :noweb-ref key-value
   <<del>>
 
+  <<exists>>
+
   <<expire>>
 
   <<get>>
@@ -1012,10 +1014,33 @@
 #+end_src
 *** del
 #+begin_src nim :noweb-ref del
-  proc del*(redis: Redis | AsyncRedis, key: string): Future[int] {.multisync.} =
+  proc del*(redis: Redis | AsyncRedis, key: string): Future[bool] {.multisync.} =
     ## Removes the specified keys. A key is ignored if it does not exist.
     let resp = await redis.exec("DEL", key)
-    result = resp.toInt()
+    if resp.toInt() == 1:
+      result = true
+    else:
+      result = false
+
+  proc del*(redis: Redis | AsyncRedis, keys: seq[string]): Future[uint32] {.multisync.} =
+    ## Removes the specified keys. A key is ignored if it does not exist.
+    let resp = await redis.exec("DEL", keys)
+    result = cast[uint32](resp.toInt())
+#+end_src
+*** exists
+#+begin_src nim :noweb-ref exists
+  proc exists*(redis: Redis | AsyncRedis, key: string): Future[bool] {.multisync.} =
+    ## Returns if key exists.
+    let resp = await redis.exec("EXISTS", key)
+    if resp.toInt() == 1:
+      result = true
+    else:
+      result = false
+
+  proc exists*(redis: Redis | AsyncRedis, keys: seq[string]): Future[uint32] {.multisync.} =
+    ## Returns if key exists.
+    let resp = await redis.exec("EXISTS", keys)
+    result = cast[uint32](resp.toInt())
 #+end_src
 *** expire
 #+begin_src nim :noweb-ref expire

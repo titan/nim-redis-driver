@@ -40,6 +40,8 @@
   test "key/value":
     let setresp = redis.set("key", "value")
     let getresp = redis.get("key")
+    let existsresp = redis.exists("key")
+    let existsresp2 = redis.exists(@["key", "key1"])
     let expireresp = redis.expire("key", 1000)
     let setexresp = redis.setex("key", "value", 1000)
     let delresp = redis.del("key")
@@ -47,9 +49,11 @@
     check:
       setresp == true
       getresp.isSome() and getresp.get() == "value"
+      existsresp == true
+      existsresp2 == 1
       expireresp == true
       setexresp == true
-      delresp == 1
+      delresp == true
 #+end_src
 ** hash
 #+begin_src nim :noweb-ref sync-hash
@@ -160,6 +164,8 @@
   test "key/value":
     let setresp = waitFor redis.set("key", "value")
     let getresp = waitFor redis.get("key")
+    let existsresp = waitFor redis.exists("key")
+    let existsresp2 = waitFor redis.exists(@["key", "key1"])
     let expireresp = waitFor redis.expire("key", 1000)
     let setexresp = waitFor redis.setex("key", "value", 1000)
     let delresp = waitFor redis.del("key")
@@ -167,9 +173,11 @@
     check:
       setresp == true
       getresp.isSome() and getresp.get() == "value"
+      existsresp == true
+      existsresp2 == 1
       expireresp == true
       setexresp == true
-      delresp == 1
+      delresp == true
 #+end_src
 ** hash
 #+begin_src nim :noweb-ref async-hash
