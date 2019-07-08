@@ -1715,9 +1715,9 @@
     if v.kind == rkArray:
       if v.array.isSome:
         let array = v.array.get()
-        for i in 0..int(len(array)/2):
-          let field = if array[i].kind == rkBulkString and array[i].bulkstr.isSome: array[i].bulkstr.get() else: ""
-          let value = if array[i + 1].kind == rkBulkString and array[i + 1].bulkstr.isSome: array[i + 1].bulkstr.get() else: ""
+        for i in 0..int(len(array)/2 - 1):
+          let field = if array[i shl 1].kind == rkBulkString and array[i shl 1].bulkstr.isSome: array[i shl 1].bulkstr.get() else: ""
+          let value = if array[(i shl 1) + 1].kind == rkBulkString and array[(i shl 1) + 1].bulkstr.isSome: array[(i shl 1) + 1].bulkstr.get() else: ""
           result[field] = value
 
   proc toSequenceTupleTable(v: RedisValue): seq[(string, TableRef[string, string])] =
