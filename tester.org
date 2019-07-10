@@ -23,6 +23,7 @@
       discard redis.del("hash")
       discard redis.del("list")
       discard redis.del("stream")
+      discard redis.del("sorted-set")
 
     teardown:
       discard
@@ -34,6 +35,8 @@
     <<sync-list>>
 
     <<sync-stream>>
+
+    <<sync-sorted-set>>
 #+end_src
 ** key/value
 #+begin_src nim :noweb-ref sync-key-value
@@ -137,6 +140,28 @@
       xtrimresp == 0
       xdelresp == 2
 #+end_src
+** sorted set
+#+begin_src nim :noweb-ref sync-sorted-set
+  test "sorted set":
+    let zaddresp = redis.zadd("sorted-set", @[(1, "A"), (2, "B")])
+    let zcardresp = redis.zcard("sorted-set")
+    let zrangeresp = redis.zrange("sorted-set", 0, -1)
+    let zrangewithscoresresp = redis.zrange_withscores("sorted-set", 0, -1)
+    let zrevrangeresp = redis.zrevrange("sorted-set", 0, -1)
+    let zrevrangewithscoresresp = redis.zrevrange_withscores("sorted-set", 0, -1)
+    let zscoreresp = redis.zscore("sorted-set", "A")
+    let zremresp = redis.zrem("sorted-set", @["A", "B", "C"])
+
+    check:
+      zaddresp == 2
+      zcardresp == 2
+      len(zrangeresp) == 2 and zrangeresp[0] == "A" and zrangeresp[1] == "B"
+      len(zrangewithscoresresp) == 2 and zrangewithscoresresp[0][0] == "A" and zrangewithscoresresp[0][1] == 1 and zrangewithscoresresp[1][0] == "B" and zrangewithscoresresp[1][1] == 2
+      len(zrevrangeresp) == 2 and zrevrangeresp[0] == "B" and zrevrangeresp[1] == "A"
+      len(zrevrangewithscoresresp) == 2 and zrevrangewithscoresresp[0][0] == "B" and zrevrangewithscoresresp[0][1] == 2 and zrevrangewithscoresresp[1][0] == "A" and zrevrangewithscoresresp[1][1] == 1
+      zscoreresp == 1
+      zremresp == 2
+#+end_src
 * 异步测试
 #+begin_src nim :noweb-ref async-test-suite
   suite "Async Test":
@@ -158,6 +183,8 @@
     <<async-list>>
 
     <<async-stream>>
+
+    <<async-sorted-set>>
 #+end_src
 ** key/value
 #+begin_src nim :noweb-ref async-key-value
@@ -260,6 +287,28 @@
       xgroupdestroyresp == 1
       xtrimresp == 0
       xdelresp == 2
+#+end_src
+** sorted set
+#+begin_src nim :noweb-ref async-sorted-set
+  test "sorted set":
+    let zaddresp = waitFor redis.zadd("sorted-set", @[(1, "A"), (2, "B")])
+    let zcardresp = waitFor redis.zcard("sorted-set")
+    let zrangeresp = waitFor redis.zrange("sorted-set", 0, -1)
+    let zrangewithscoresresp = waitFor redis.zrange_withscores("sorted-set", 0, -1)
+    let zrevrangeresp = waitFor redis.zrevrange("sorted-set", 0, -1)
+    let zrevrangewithscoresresp = waitFor redis.zrevrange_withscores("sorted-set", 0, -1)
+    let zscoreresp = waitFor redis.zscore("sorted-set", "A")
+    let zremresp = waitFor redis.zrem("sorted-set", @["A", "B", "C"])
+
+    check:
+      zaddresp == 2
+      zcardresp == 2
+      len(zrangeresp) == 2 and zrangeresp[0] == "A" and zrangeresp[1] == "B"
+      len(zrangewithscoresresp) == 2 and zrangewithscoresresp[0][0] == "A" and zrangewithscoresresp[0][1] == 1 and zrangewithscoresresp[1][0] == "B" and zrangewithscoresresp[1][1] == 2
+      len(zrevrangeresp) == 2 and zrevrangeresp[0] == "B" and zrevrangeresp[1] == "A"
+      len(zrevrangewithscoresresp) == 2 and zrevrangewithscoresresp[0][0] == "B" and zrevrangewithscoresresp[0][1] == 2 and zrevrangewithscoresresp[1][0] == "A" and zrevrangewithscoresresp[1][1] == 1
+      zscoreresp == 1
+      zremresp == 2
 #+end_src
 * 辅助方法
 ** 框架

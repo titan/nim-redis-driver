@@ -768,6 +768,8 @@
   <<list>>
 
   <<stream>>
+
+  <<sorted-set>>
 #+end_src
 ** open
 #+begin_src nim :noweb-ref open
@@ -1534,6 +1536,120 @@
     let resp = await redis.exec("XTRIM", key, "MAXLEN", "~", $count)
     result = cast[uint32](resp.toInt())
 #+end_src
+** sorted set
+*** 框架
+#+begin_src nim :noweb-ref sorted-set
+  <<zadd>>
+
+  <<zcard>>
+
+  <<zrange>>
+
+  <<zrange-withscores>>
+
+  <<zrem>>
+
+  <<zrevrange>>
+
+  <<zrevrange-withscores>>
+
+  <<zscore>>
+#+end_src
+*** zadd
+#+begin_src nim :noweb-ref zadd
+  proc zadd*(redis: Redis | AsyncRedis, key: string, pairs: seq[(int, string)]): Future[uint32] {.multisync.} =
+    ## Adds all the specified members with the specified scores to the
+    ## sorted set stored at key.
+    ##
+    ## The command returns the number of elements added to the sorted
+    ## sets, not including elements already existing for which the score
+    ## was updated.
+    var args = @[key]
+    for pair in pairs:
+      args.add($pair[0])
+      args.add(pair[1])
+    let resp = await redis.exec("ZADD", args)
+    result = cast[uint32](resp.toInt())
+#+end_src
+*** zcard
+#+begin_src nim :noweb-ref zcard
+  proc zcard*(redis: Redis | AsyncRedis, key: string): Future[uint32] {.multisync.} =
+    ## Returns the sorted set cardinality (number of elements) of the
+    ## sorted set stored at key.
+    ##
+    ## The command returns the cardinality (number of elements) of the
+    ## sorted set, or 0 if key does not exist.
+    let resp = await redis.exec("ZCARD", key)
+    result = cast[uint32](resp.toInt())
+#+end_src
+*** zrange
+#+begin_src nim :noweb-ref zrange
+  proc zrange*(redis: Redis | AsyncRedis, key: string, start: int, stop: int): Future[seq[string]] {.multisync.} =
+    ## Returns the specified range of elements in the sorted set stored
+    ## at key. The elements are considered to be ordered from the lowest
+    ## to the highest score.
+    ##
+    ## The command returns list of elements in the specified range.
+    let resp = await redis.exec("ZRANGE", key, $start, $stop)
+    result = resp.toStringArray()
+#+end_src
+*** zrange_withscores
+#+begin_src nim :noweb-ref zrange-withscores
+  proc zrange_withscores*(redis: Redis | AsyncRedis, key: string, start: int, stop: int): Future[seq[(string, int)]] {.multisync.} =
+    ## Returns the specified range of elements in the sorted set stored
+    ## at key. The elements are considered to be ordered from the lowest
+    ## to the highest score.
+    ##
+    ## The command returns list of elements with their scores in the
+    ## specified range.
+    let resp = await redis.exec("ZRANGE", key, $start, $stop, "WITHSCORES")
+    <<get-sorted-set-result>>
+#+end_src
+*** zrem
+#+begin_src nim :noweb-ref zrem
+  proc zrem*(redis: Redis | AsyncRedis, key: string, members: seq[string]): Future[uint32] {.multisync.} =
+    ## Removes the specified members from the sorted set stored at
+    ## key. Non existing members are ignored.
+    ##
+    ## The command returns the number of members removed from the sorted
+    ## set, not including non existing members.
+    let resp = await redis.exec("ZREM", concat(@[key], members))
+    result = cast[uint32](resp.toInt())
+#+end_src
+*** zrevrange
+#+begin_src nim :noweb-ref zrevrange
+  proc zrevrange*(redis: Redis | AsyncRedis, key: string, start: int, stop: int): Future[seq[string]] {.multisync.} =
+    ## Returns the specified range of elements in the sorted set stored
+    ## at key. The elements are considered to be ordered from the
+    ## highest to the lowest score.
+    ##
+    ## The command returns list of elements in the specified range.
+    let resp = await redis.exec("ZREVRANGE", key, $start, $stop)
+    result = resp.toStringArray()
+#+end_src
+*** zrevrange_withscores
+#+begin_src nim :noweb-ref zrevrange-withscores
+  proc zrevrange_withscores*(redis: Redis | AsyncRedis, key: string, start: int, stop: int): Future[seq[(string, int)]] {.multisync.} =
+    ## Returns the specified range of elements in the sorted set stored
+    ## at key. The elements are considered to be ordered from the
+    ## highest to the lowest score.
+    ##
+    ## The command returns list of elements with their scores in the
+    ## specified range.
+    let resp = await redis.exec("ZREVRANGE", key, $start, $stop, "WITHSCORES")
+    <<get-sorted-set-result>>
+#+end_src
+*** zscore
+#+begin_src nim :noweb-ref zscore
+  proc zscore*(redis: Redis | AsyncRedis, key: string, member: string): Future[int] {.multisync.} =
+    ## Returns the score of member in the sorted set at key.
+    let resp = await redis.exec("ZSCORE", key, member)
+    let value = resp.toString()
+    if value.isSome:
+      result = parseInt(value.get())
+    else:
+      result = 0
+#+end_src
 * 辅助方法
 ** 框架
 #+begin_src nim :noweb-ref utilities
@@ -1741,4 +1857,16 @@
           let stream = if elements[0].kind == rkBulkString and elements[0].bulkstr.isSome: elements[0].bulkstr.get() else: ""
           if elements[1].kind == rkArray:
             result.add((stream, elements[1].toSequenceTupleTable()))
+#+end_src
+** 获取 sorted-set 结果
+#+begin_src nim :noweb-ref get-sorted-set-result
+  result = @[]
+  if resp.kind == rkArray:
+    if resp.array.isSome:
+      let array = resp.array.get()
+      for i in 0..int(len(array) / 2 - 1):
+        let
+          element = if array[i shl 1].kind == rkBulkString and array[i shl 1].bulkstr.isSome: array[i shl 1].bulkstr.get() else: ""
+          score = if array[(i shl 1) + 1].kind == rkBulkString and array[(i shl 1) + 1].bulkstr.isSome: parseInt(array[(i shl 1) + 1].bulkstr.get()) else: 0
+        result.add((element, score))
 #+end_src
