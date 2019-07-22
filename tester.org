@@ -61,7 +61,8 @@
 ** hash
 #+begin_src nim :noweb-ref sync-hash
   test "hash":
-    let hsetresp = redis.hset("hash", "key", "value")
+    let hsetresp = redis.hset("hash", "key", "1")
+    let hincrbyresp = redis.hincrby("hash", "key", 1)
     let hgetresp = redis.hget("hash", "key")
     let hlenresp = redis.hlen("hash")
     let hkeysresp = redis.hkeys("hash")
@@ -71,11 +72,12 @@
 
     check:
       hsetresp == 1
-      hgetresp.isSome and hgetresp.get() == "value"
+      hincrbyresp == 2
+      hgetresp.isSome and hgetresp.get() == "2"
       hlenresp == 1
       len(hkeysresp) == 1 and hkeysresp[0] == "key"
       hmsetresp == true
-      len(hmgetresp) == 4 and hmgetresp[0].isSome and hmgetresp[0].get() == "value" and hmgetresp[1].isSome and hmgetresp[1].get() == "value1" and hmgetresp[2].isSome and hmgetresp[2].get() == "value2" and hmgetresp[3].isNone
+      len(hmgetresp) == 4 and hmgetresp[0].isSome and hmgetresp[0].get() == "2" and hmgetresp[1].isSome and hmgetresp[1].get() == "value1" and hmgetresp[2].isSome and hmgetresp[2].get() == "value2" and hmgetresp[3].isNone
       hdelresp == 3
 #+end_src
 ** list
@@ -209,7 +211,8 @@
 ** hash
 #+begin_src nim :noweb-ref async-hash
   test "hash":
-    let hsetresp = waitFor redis.hset("hash", "key", "value")
+    let hsetresp = waitFor redis.hset("hash", "key", "1")
+    let hincrbyresp = waitFor redis.hincrby("hash", "key", 1)
     let hgetresp = waitFor redis.hget("hash", "key")
     let hlenresp = waitFor redis.hlen("hash")
     let hkeysresp = waitFor redis.hkeys("hash")
@@ -219,11 +222,12 @@
 
     check:
       hsetresp == 1
-      hgetresp.isSome and hgetresp.get() == "value"
+      hincrbyresp == 2
+      hgetresp.isSome and hgetresp.get() == "2"
       hlenresp == 1
       len(hkeysresp) == 1 and hkeysresp[0] == "key"
       hmsetresp == true
-      len(hmgetresp) == 4 and hmgetresp[0].isSome and hmgetresp[0].get() == "value" and hmgetresp[1].isSome and hmgetresp[1].get() == "value1" and hmgetresp[2].isSome and hmgetresp[2].get() == "value2" and hmgetresp[3].isNone
+      len(hmgetresp) == 4 and hmgetresp[0].isSome and hmgetresp[0].get() == "2" and hmgetresp[1].isSome and hmgetresp[1].get() == "value1" and hmgetresp[2].isSome and hmgetresp[2].get() == "value2" and hmgetresp[3].isNone
       hdelresp == 3
 #+end_src
 ** list
