@@ -35,6 +35,7 @@
 * 类型定义
 #+begin_src nim :noweb-ref type
   type
+    RedisError* = object of IOError ## Error in redis
 
     <<syntax-context>>
 
@@ -58,6 +59,8 @@
   Redis* = ref object of RedisBase[net.Socket]
 
   AsyncRedis* = ref object of RedisBase[asyncnet.AsyncSocket]
+    current_command: Option[string]
+    send_queue: Deque[Future[void]]
 #+end_src
 ** 数据类型
 #+begin_src nim :noweb-ref data-type
@@ -851,7 +854,7 @@
 #+begin_src nim :noweb-ref open_async
   proc open_async*(host = "localhost", port = 6379.Port): Future[AsyncRedis] {.async.} =
     ## Open an asynchronous connection to a redis server.
-    result = AsyncRedis(socket: newAsyncSocket(buffered = false))
+    result = AsyncRedis(socket: newAsyncSocket(buffered = false), send_queue: initDeque[Future[void]]())
     await result.socket.connect(host, port)
     result.connected = true
 
@@ -907,25 +910,39 @@
   proc exec(this: Redis | AsyncRedis, cmd: RedisValue): Future[RedisValue] {.multisync.} =
     ## execute command `command` with arguments seq `args`
 
-    await this.socket.send(encode(cmd))
-
     <<init-fsm>>
 
+    let data = encode(cmd)
     when this is Redis:
+      this.socket.send(data)
       var timeout = -1
       if this.timeout != 0:
         timeout = this.timeout
       while lctx.sctx.done == false:
-        var response = this.socket.recv(1024, timeout = timeout)
+        let response = this.socket.recv(1024, timeout = timeout)
+        if response == "":
+          raise newException(RedisError, "Server closed connection prematurely")
         <<execute-fsm>>
       (lfsm, lctx) = eof[LexerContext](lfsm, lctx)
       return lctx.sctx.target.val
     else:
+      if this.current_command.isSome:
+        let sendfut = newFuture[void]("redis.exec")
+        this.send_queue.addLast(sendfut)
+        await sendfut
+      this.current_command = some(data)
+      await this.socket.send(data)
       while lctx.sctx.done == false:
-        var response = await this.socket.recv(1024)
+        let response = await this.socket.recv(1024)
+        if response == "":
+          raise newException(RedisError, "Server closed connection prematurely")
         <<execute-fsm>>
       (lfsm, lctx) = eof[LexerContext](lfsm, lctx)
-      return lctx.sctx.target.val
+      result = lctx.sctx.target.val
+      this.current_command = none(string)
+      if len(this.send_queue) > 0:
+        let fut = this.send_queue.popFirst()
+        fut.complete()
 
   proc exec*(this: Redis | AsyncRedis, command: string, arg0: string): Future[RedisValue] {.multisync.} =
     ## execute command `command` with arguments seq `args`
