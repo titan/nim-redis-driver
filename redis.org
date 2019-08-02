@@ -790,6 +790,8 @@
 
   <<list>>
 
+  <<sets>>
+
   <<stream>>
 
   <<sorted-set>>
@@ -1268,6 +1270,74 @@
   proc rpush*(redis: Redis | AsyncRedis, key: string, fields: seq[string]): Future[uint32] {.multisync.} =
     ## Insert all the specified values at the tail of the list stored at key.
     let resp = await redis.exec("RPUSH", concat(@[key], fields))
+    result = cast[uint32](resp.toInt())
+#+end_src
+** set
+*** 框架
+#+begin_src nim :noweb-ref sets
+  <<sadd>>
+
+  <<scard>>
+
+  <<sismember>>
+
+  <<smembers>>
+
+  <<srem>>
+#+end_src
+*** sadd
+#+begin_src nim :noweb-ref sadd
+  proc sadd*(redis: Redis | AsyncRedis, key: string, members: seq[string]): Future[uint32] {.multisync.} =
+    ## Add the specified members to the set stored at key. Specified
+    ## members that are already a member of this set are ignored. If key
+    ## does not exist, a new set is created before adding the specified
+    ## members.
+    ##
+    ## The command returns the number of elements that were added to the
+    ## set, not including all the elements already present into the set.
+    let resp = await redis.exec("SADD", concat(@[key], members))
+    result = cast[uint32](resp.toInt())
+#+end_src
+*** scard
+#+begin_src nim :noweb-ref scard
+  proc scard*(redis: Redis | AsyncRedis, key: string): Future[uint32] {.multisync.} =
+    ## Returns the set cardinality (number of elements) of the set
+    ## stored at key.
+    ##
+    ## The command returns the cardinality (number of elements) of the
+    ## set, or 0 if key does not exist.
+    let resp = await redis.exec("SCARD", key)
+    result = cast[uint32](resp.toInt())
+#+end_src
+*** sismember
+#+begin_src nim :noweb-ref sismember
+  proc sismember*(redis: Redis | AsyncRedis, key: string, member: string): Future[bool] {.multisync.} =
+    ## Returns if member is a member of the set stored at key.
+    let resp = await redis.exec("SISMEMBER", key, member)
+    if resp.toInt() == 1:
+      result = true
+    else:
+      result = false
+#+end_src
+*** smembers
+#+begin_src nim :noweb-ref smembers
+  proc smembers*(redis: Redis | AsyncRedis, key: string): Future[seq[string]] {.multisync.} =
+    ## Returns all the members of the set value stored at key.
+    ##
+    ## The command returns all elements of the set.
+    let resp = await redis.exec("SMEMBERS", key)
+    result = resp.toStringArray()
+#+end_src
+*** srem
+#+begin_src nim :noweb-ref srem
+  proc srem*(redis: Redis | AsyncRedis, key: string, members: seq[string]): Future[uint32] {.multisync.} =
+    ## Remove the specified members from the set stored at
+    ## key. Specified members that are not a member of this set are
+    ## ignored.
+    ##
+    ## The command returns the number of members that were removed from
+    ## the set, not including non existing members.
+    let resp = await redis.exec("SREM", concat(@[key], members))
     result = cast[uint32](resp.toInt())
 #+end_src
 ** stream

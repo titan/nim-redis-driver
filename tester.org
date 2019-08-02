@@ -22,6 +22,7 @@
     setup:
       discard redis.del("hash")
       discard redis.del("list")
+      discard redis.del("set")
       discard redis.del("stream")
       discard redis.del("sorted-set")
 
@@ -33,6 +34,8 @@
     <<sync-hash>>
 
     <<sync-list>>
+
+    <<sync-set>>
 
     <<sync-stream>>
 
@@ -102,6 +105,22 @@
       len(lrangeresp2) == 0
       lpopresp.isSome and lpopresp.get() == "field1"
       rpopresp.isSome and rpopresp.get() == "field2"
+#+end_src
+** set
+#+begin_src nim :noweb-ref sync-set
+  test "set":
+    let saddresp = redis.sadd("set", @["hello", "world"])
+    let scardresp = redis.scard("set")
+    let sismemberresp = redis.sismember("set", "hello")
+    let smembersresp = redis.smembers("set")
+    let sremresp = redis.srem("set", @["hello", "world"])
+
+    check:
+      saddresp == 2
+      scardresp == 2
+      sismemberresp == true
+      len(smembersresp) == 2 and "hello" in smembersresp and "world" in smembersresp
+      sremresp == 2
 #+end_src
 ** stream
 #+begin_src nim :noweb-ref sync-stream
@@ -173,7 +192,9 @@
     setup:
       discard waitFor redis.del("hash")
       discard waitFor redis.del("list")
+      discard waitFor redis.del("set")
       discard waitFor redis.del("stream")
+      discard waitFor redis.del("sorted-set")
 
     teardown:
       discard
@@ -183,6 +204,8 @@
     <<async-hash>>
 
     <<async-list>>
+
+    <<async-set>>
 
     <<async-stream>>
 
@@ -252,6 +275,22 @@
       len(lrangeresp2) == 0
       lpopresp.isSome and lpopresp.get() == "field1"
       rpopresp.isSome and rpopresp.get() == "field2"
+#+end_src
+** set
+#+begin_src nim :noweb-ref async-set
+  test "set":
+    let saddresp = waitFor redis.sadd("set", @["hello", "world"])
+    let scardresp = waitFor redis.scard("set")
+    let sismemberresp = waitFor redis.sismember("set", "hello")
+    let smembersresp = waitFor redis.smembers("set")
+    let sremresp = waitFor redis.srem("set", @["hello", "world"])
+
+    check:
+      saddresp == 2
+      scardresp == 2
+      sismemberresp == true
+      len(smembersresp) == 2 and "hello" in smembersresp and "world" in smembersresp
+      sremresp == 2
 #+end_src
 ** stream
 #+begin_src nim :noweb-ref async-stream
