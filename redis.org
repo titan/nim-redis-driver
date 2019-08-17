@@ -782,7 +782,9 @@
 
   <<open_async>>
 
-  <<exec>>
+  <<send>>
+
+  <<recv>>
 
   <<key-value>>
 
@@ -907,16 +909,85 @@
       lf_and_strlen_is_negative_1: lf_and_strlen_is_negative_1[LexerContext],
     )
 #+end_src
-** exec
-#+begin_src nim :noweb-ref exec
-  proc exec(this: Redis | AsyncRedis, cmd: RedisValue): Future[RedisValue] {.multisync.} =
+** send
+#+begin_src nim :noweb-ref send
+  proc send(this: Redis | AsyncRedis, cmd: RedisValue): Future[void] {.multisync.} =
     ## execute command `command` with arguments seq `args`
-
-    <<init-fsm>>
 
     let data = encode(cmd)
     when this is Redis:
       this.socket.send(data)
+    else:
+      if this.current_command.isSome:
+        let sendfut = newFuture[void]("redis.send")
+        this.send_queue.addLast(sendfut)
+        await sendfut
+      this.current_command = some(data)
+      await this.socket.send(data)
+
+  proc send(this: Redis | AsyncRedis, command: string, arg0: string): Future[void] {.multisync.} =
+    ## execute command `command` with arguments seq `args`
+
+    var parameters = newSeq[RedisValue](2)
+    parameters[0] = RedisValue(kind: rkBulkString, bulkstr: some(command))
+    parameters[1] = RedisValue(kind: rkBulkString, bulkstr: some(arg0))
+    let cmd = RedisValue(kind: rkArray, array: some(parameters))
+
+    await send(this, cmd)
+
+  proc send(this: Redis | AsyncRedis, command: string, arg0: string, arg1: string): Future[void] {.multisync.} =
+    ## execute command `command` with arguments seq `args`
+
+    var parameters = newSeq[RedisValue](3)
+    parameters[0] = RedisValue(kind: rkBulkString, bulkstr: some(command))
+    parameters[1] = RedisValue(kind: rkBulkString, bulkstr: some(arg0))
+    parameters[2] = RedisValue(kind: rkBulkString, bulkstr: some(arg1))
+    let cmd = RedisValue(kind: rkArray, array: some(parameters))
+
+    await send(this, cmd)
+
+  proc send(this: Redis | AsyncRedis, command: string, arg0: string, arg1: string, arg2: string): Future[void] {.multisync.} =
+    ## execute command `command` with arguments seq `args`
+
+    var parameters = newSeq[RedisValue](4)
+    parameters[0] = RedisValue(kind: rkBulkString, bulkstr: some(command))
+    parameters[1] = RedisValue(kind: rkBulkString, bulkstr: some(arg0))
+    parameters[2] = RedisValue(kind: rkBulkString, bulkstr: some(arg1))
+    parameters[3] = RedisValue(kind: rkBulkString, bulkstr: some(arg2))
+    let cmd = RedisValue(kind: rkArray, array: some(parameters))
+
+    await send(this, cmd)
+
+  proc send(this: Redis | AsyncRedis, command: string, arg0: string, arg1: string, arg2: string, arg3: string): Future[void] {.multisync.} =
+    ## execute command `command` with arguments seq `args`
+
+    var parameters = newSeq[RedisValue](5)
+    parameters[0] = RedisValue(kind: rkBulkString, bulkstr: some(command))
+    parameters[1] = RedisValue(kind: rkBulkString, bulkstr: some(arg0))
+    parameters[2] = RedisValue(kind: rkBulkString, bulkstr: some(arg1))
+    parameters[3] = RedisValue(kind: rkBulkString, bulkstr: some(arg2))
+    parameters[4] = RedisValue(kind: rkBulkString, bulkstr: some(arg3))
+    let cmd = RedisValue(kind: rkArray, array: some(parameters))
+
+    await send(this, cmd)
+
+  proc send(this: Redis | AsyncRedis, command: string, args: seq[string]): Future[void] {.multisync.} =
+    ## execute command `command` with arguments seq `args`
+
+    var parameters = newSeq[RedisValue](len(args) + 1)
+    parameters[0] = RedisValue(kind: rkBulkString, bulkstr: some(command))
+    for idx in 1..len(args):
+      parameters[idx] = RedisValue(kind: rkBulkString, bulkstr: some(args[idx - 1]))
+    let cmd = RedisValue(kind: rkArray, array: some(parameters))
+
+    await send(this, cmd)
+#+end_src
+** recv
+#+begin_src nim :noweb-ref recv
+  proc recv(this: Redis | AsyncRedis): Future[RedisValue] {.multisync.} =
+    <<init-fsm>>
+
+    when this is Redis:
       var timeout = -1
       if this.timeout != 0:
         timeout = this.timeout
@@ -928,12 +999,6 @@
       (lfsm, lctx) = eof[LexerContext](lfsm, lctx)
       return lctx.sctx.target.val
     else:
-      if this.current_command.isSome:
-        let sendfut = newFuture[void]("redis.exec")
-        this.send_queue.addLast(sendfut)
-        await sendfut
-      this.current_command = some(data)
-      await this.socket.send(data)
       while lctx.sctx.done == false:
         let response = await this.socket.recv(1024)
         if response == "":
@@ -945,63 +1010,6 @@
       if len(this.send_queue) > 0:
         let fut = this.send_queue.popFirst()
         fut.complete()
-
-  proc exec*(this: Redis | AsyncRedis, command: string, arg0: string): Future[RedisValue] {.multisync.} =
-    ## execute command `command` with arguments seq `args`
-
-    var parameters = newSeq[RedisValue](2)
-    parameters[0] = RedisValue(kind: rkBulkString, bulkstr: some(command))
-    parameters[1] = RedisValue(kind: rkBulkString, bulkstr: some(arg0))
-    let cmd = RedisValue(kind: rkArray, array: some(parameters))
-
-    return await exec(this, cmd)
-
-  proc exec*(this: Redis | AsyncRedis, command: string, arg0: string, arg1: string): Future[RedisValue] {.multisync.} =
-    ## execute command `command` with arguments seq `args`
-
-    var parameters = newSeq[RedisValue](3)
-    parameters[0] = RedisValue(kind: rkBulkString, bulkstr: some(command))
-    parameters[1] = RedisValue(kind: rkBulkString, bulkstr: some(arg0))
-    parameters[2] = RedisValue(kind: rkBulkString, bulkstr: some(arg1))
-    let cmd = RedisValue(kind: rkArray, array: some(parameters))
-
-    return await exec(this, cmd)
-
-  proc exec*(this: Redis | AsyncRedis, command: string, arg0: string, arg1: string, arg2: string): Future[RedisValue] {.multisync.} =
-    ## execute command `command` with arguments seq `args`
-
-    var parameters = newSeq[RedisValue](4)
-    parameters[0] = RedisValue(kind: rkBulkString, bulkstr: some(command))
-    parameters[1] = RedisValue(kind: rkBulkString, bulkstr: some(arg0))
-    parameters[2] = RedisValue(kind: rkBulkString, bulkstr: some(arg1))
-    parameters[3] = RedisValue(kind: rkBulkString, bulkstr: some(arg2))
-    let cmd = RedisValue(kind: rkArray, array: some(parameters))
-
-    return await exec(this, cmd)
-
-  proc exec*(this: Redis | AsyncRedis, command: string, arg0: string, arg1: string, arg2: string, arg3: string): Future[RedisValue] {.multisync.} =
-    ## execute command `command` with arguments seq `args`
-
-    var parameters = newSeq[RedisValue](5)
-    parameters[0] = RedisValue(kind: rkBulkString, bulkstr: some(command))
-    parameters[1] = RedisValue(kind: rkBulkString, bulkstr: some(arg0))
-    parameters[2] = RedisValue(kind: rkBulkString, bulkstr: some(arg1))
-    parameters[3] = RedisValue(kind: rkBulkString, bulkstr: some(arg2))
-    parameters[4] = RedisValue(kind: rkBulkString, bulkstr: some(arg3))
-    let cmd = RedisValue(kind: rkArray, array: some(parameters))
-
-    return await exec(this, cmd)
-
-  proc exec*(this: Redis | AsyncRedis, command: string, args: seq[string]): Future[RedisValue] {.multisync.} =
-    ## execute command `command` with arguments seq `args`
-
-    var parameters = newSeq[RedisValue](len(args) + 1)
-    parameters[0] = RedisValue(kind: rkBulkString, bulkstr: some(command))
-    for idx in 1..len(args):
-      parameters[idx] = RedisValue(kind: rkBulkString, bulkstr: some(args[idx - 1]))
-    let cmd = RedisValue(kind: rkArray, array: some(parameters))
-
-    return await exec(this, cmd)
 #+end_src
 *** 初始化状态机
 #+begin_src nim :noweb-ref init-fsm
@@ -1048,7 +1056,8 @@
 #+begin_src nim :noweb-ref del
   proc del*(redis: Redis | AsyncRedis, key: string): Future[bool] {.multisync.} =
     ## Removes the specified keys. A key is ignored if it does not exist.
-    let resp = await redis.exec("DEL", key)
+    await redis.send("DEL", key)
+    let resp = await redis.recv()
     if resp.toInt() == 1:
       result = true
     else:
@@ -1056,14 +1065,16 @@
 
   proc del*(redis: Redis | AsyncRedis, keys: seq[string]): Future[uint32] {.multisync.} =
     ## Removes the specified keys. A key is ignored if it does not exist.
-    let resp = await redis.exec("DEL", keys)
+    await redis.send("DEL", keys)
+    let resp = await redis.recv()
     result = cast[uint32](resp.toInt())
 #+end_src
 *** exists
 #+begin_src nim :noweb-ref exists
   proc exists*(redis: Redis | AsyncRedis, key: string): Future[bool] {.multisync.} =
     ## Returns if key exists.
-    let resp = await redis.exec("EXISTS", key)
+    await redis.send("EXISTS", key)
+    let resp = await redis.recv()
     if resp.toInt() == 1:
       result = true
     else:
@@ -1071,14 +1082,16 @@
 
   proc exists*(redis: Redis | AsyncRedis, keys: seq[string]): Future[uint32] {.multisync.} =
     ## Returns if key exists.
-    let resp = await redis.exec("EXISTS", keys)
+    await redis.send("EXISTS", keys)
+    let resp = await redis.recv()
     result = cast[uint32](resp.toInt())
 #+end_src
 *** expire
 #+begin_src nim :noweb-ref expire
   proc expire*(redis: Redis | AsyncRedis, key: string, timeout: uint32): Future[bool] {.multisync.} =
     ## Get the value of key
-    let resp = await redis.exec("EXPIRE", key, $timeout)
+    await redis.send("EXPIRE", key, $timeout)
+    let resp = await redis.recv()
     if resp.toInt() == 1:
       result = true
     else:
@@ -1088,14 +1101,16 @@
 #+begin_src nim :noweb-ref get
   proc get*(redis: Redis | AsyncRedis, key: string): Future[Option[string]] {.multisync.} =
     ## Get the value of key
-    let resp = await redis.exec("GET", key)
+    await redis.send("GET", key)
+    let resp = await redis.recv()
     result = resp.toString()
 #+end_src
 *** set
 #+begin_src nim :noweb-ref set
   proc set*(redis: Redis | AsyncRedis, key: string, value: string): Future[bool] {.multisync.} =
     ## Set key to hold the string value.
-    let resp = await redis.exec("SET", key, value)
+    await redis.send("SET", key, value)
+    let resp = await redis.recv()
     let str = resp.toString()
     if str.isSome() and str.get() == "OK":
       result = true
@@ -1106,7 +1121,8 @@
 #+begin_src nim :noweb-ref setex
   proc setex*(redis: Redis | AsyncRedis, key: string, value: string, timeout: uint32): Future[bool] {.multisync.} =
     ## Set key to hold the string value and set key to timeout after a given number of seconds.
-    let resp = await redis.exec("SET", key, value, "EX", $timeout)
+    await redis.send("SET", key, value, "EX", $timeout)
+    let resp = await redis.recv()
     let str = resp.toString()
     if str.isSome() and str.get() == "OK":
       result = true
@@ -1136,42 +1152,48 @@
 #+begin_src nim :noweb-ref hdel
   proc hdel*(redis: Redis | AsyncRedis, key: string, fields: seq[string]): Future[int] {.multisync.} =
     ## Removes the specified fields from the hash stored at key.
-    let resp = await redis.exec("HDEL", concat(@[key], fields))
+    await redis.send("HDEL", concat(@[key], fields))
+    let resp = await redis.recv()
     result = resp.toInt()
 #+end_src
 *** hget
 #+begin_src nim :noweb-ref hget
   proc hget*(redis: Redis | AsyncRedis, key: string, field: string): Future[Option[string]] {.multisync.} =
     ## Returns the value associated with field in the hash stored at key.
-    let resp = await redis.exec("HGET", key, field)
+    await redis.send("HGET", key, field)
+    let resp = await redis.recv()
     result = resp.toString()
 #+end_src
 *** hincrby
 #+begin_src nim :noweb-ref hincrby
   proc hincrby*(redis: Redis | AsyncRedis, key: string, field: string, increment: int): Future[int] {.multisync.} =
     ## Increments the number stored at field in the hash stored at key by increment.
-    let resp = await redis.exec("HINCRBY", key, field, $increment)
+    await redis.send("HINCRBY", key, field, $increment)
+    let resp = await redis.recv()
     result = resp.toInt()
 #+end_src
 *** hkeys
 #+begin_src nim :noweb-ref hkeys
   proc hkeys*(redis: Redis | AsyncRedis, key: string): Future[seq[string]] {.multisync.} =
     ## Returns all field names in the hash stored at key.
-    let resp = await redis.exec("HKEYS", key)
+    await redis.send("HKEYS", key)
+    let resp = await redis.recv()
     result = resp.toStringArray()
 #+end_src
 *** hlen
 #+begin_src nim :noweb-ref hlen
   proc hlen*(redis: Redis | AsyncRedis, key: string): Future[uint32] {.multisync.} =
     ## Returns the number of fields contained in the hash stored at key.
-    let resp = await redis.exec("HLEN", key)
+    await redis.send("HLEN", key)
+    let resp = await redis.recv()
     result = cast[uint32](resp.toInt())
 #+end_src
 *** hmget
 #+begin_src nim :noweb-ref hmget
   proc hmget*(redis: Redis | AsyncRedis, key: string, fields: seq[string]): Future[seq[Option[string]]] {.multisync.} =
     ## Returns the values associated with the specified fields in the hash stored at key.
-    let resp = await redis.exec("HMGET", concat(@[key], fields))
+    await redis.send("HMGET", concat(@[key], fields))
+    let resp = await redis.recv()
     result = resp.toOptionalStringArray()
 #+end_src
 *** hmset
@@ -1182,7 +1204,8 @@
     for pair in pairs:
       args.add(pair[0])
       args.add(pair[1])
-    let resp = await redis.exec("HMSET", args)
+    await redis.send("HMSET", args)
+    let resp = await redis.recv()
     let str = resp.toString()
     if str.isSome() and str.get() == "OK":
       result = true
@@ -1193,7 +1216,8 @@
 #+begin_src nim :noweb-ref hset
   proc hset*(redis: Redis | AsyncRedis, key: string, field: string, value: string): Future[uint32] {.multisync.} =
     ## Sets field in the hash stored at key to value.
-    let resp = await redis.exec("HSET", key, field, value)
+    await redis.send("HSET", key, field, value)
+    let resp = await redis.recv()
     result = cast[uint32](resp.toInt())
 #+end_src
 ** list
@@ -1217,28 +1241,32 @@
 #+begin_src nim :noweb-ref llen
   proc llen*(redis: Redis | AsyncRedis, key: string): Future[uint32] {.multisync.} =
     ## Returns the length of the list stored at key.
-    let resp = await redis.exec("LLEN", key)
+    await redis.send("LLEN", key)
+    let resp = await redis.recv()
     result = cast[uint32](resp.toInt())
 #+end_src
 *** lpop
 #+begin_src nim :noweb-ref lpop
   proc lpop*(redis: Redis | AsyncRedis, key: string): Future[Option[string]] {.multisync.} =
     ## Removes and returns the first element of the list stored at key.
-    let resp = await redis.exec("LPOP", key)
+    await redis.send("LPOP", key)
+    let resp = await redis.recv()
     result = resp.toString()
 #+end_src
 *** lpush
 #+begin_src nim :noweb-ref lpush
   proc lpush*(redis: Redis | AsyncRedis, key: string, fields: seq[string]): Future[uint32] {.multisync.} =
     ## Insert all the specified values at the head of the list stored at key.
-    let resp = await redis.exec("LPUSH", concat(@[key], fields))
+    await redis.send("LPUSH", concat(@[key], fields))
+    let resp = await redis.recv()
     result = cast[uint32](resp.toInt())
 #+end_src
 *** lrange
 #+begin_src nim :noweb-ref lrange
   proc lrange*(redis: Redis | AsyncRedis, key: string, start: int, stop: int): Future[seq[string]] {.multisync.} =
     ## Returns the specified elements of the list stored at key.
-    let resp = await redis.exec("LRANGE", key, $start, $stop)
+    await redis.send("LRANGE", key, $start, $stop)
+    let resp = await redis.recv()
     result = resp.toStringArray()
 #+end_src
 *** lrem
@@ -1255,21 +1283,24 @@
     ## count = 0: Remove all elements equal to value.
     ##
     ## Return the number of removed elements.
-    let resp = await redis.exec("LREM", key, $count, value)
+    await redis.send("LREM", key, $count, value)
+    let resp = await redis.recv()
     result = cast[uint32](resp.toInt())
 #+end_src
 *** rpop
 #+begin_src nim :noweb-ref rpop
   proc rpop*(redis: Redis | AsyncRedis, key: string): Future[Option[string]] {.multisync.} =
     ## Removes and returns the last element of the list stored at key.
-    let resp = await redis.exec("RPOP", key)
+    await redis.send("RPOP", key)
+    let resp = await redis.recv()
     result = resp.toString()
 #+end_src
 *** rpush
 #+begin_src nim :noweb-ref rpush
   proc rpush*(redis: Redis | AsyncRedis, key: string, fields: seq[string]): Future[uint32] {.multisync.} =
     ## Insert all the specified values at the tail of the list stored at key.
-    let resp = await redis.exec("RPUSH", concat(@[key], fields))
+    await redis.send("RPUSH", concat(@[key], fields))
+    let resp = await redis.recv()
     result = cast[uint32](resp.toInt())
 #+end_src
 ** set
@@ -1295,7 +1326,8 @@
     ##
     ## The command returns the number of elements that were added to the
     ## set, not including all the elements already present into the set.
-    let resp = await redis.exec("SADD", concat(@[key], members))
+    await redis.send("SADD", concat(@[key], members))
+    let resp = await redis.recv()
     result = cast[uint32](resp.toInt())
 #+end_src
 *** scard
@@ -1306,14 +1338,16 @@
     ##
     ## The command returns the cardinality (number of elements) of the
     ## set, or 0 if key does not exist.
-    let resp = await redis.exec("SCARD", key)
+    await redis.send("SCARD", key)
+    let resp = await redis.recv()
     result = cast[uint32](resp.toInt())
 #+end_src
 *** sismember
 #+begin_src nim :noweb-ref sismember
   proc sismember*(redis: Redis | AsyncRedis, key: string, member: string): Future[bool] {.multisync.} =
     ## Returns if member is a member of the set stored at key.
-    let resp = await redis.exec("SISMEMBER", key, member)
+    await redis.send("SISMEMBER", key, member)
+    let resp = await redis.recv()
     if resp.toInt() == 1:
       result = true
     else:
@@ -1325,7 +1359,8 @@
     ## Returns all the members of the set value stored at key.
     ##
     ## The command returns all elements of the set.
-    let resp = await redis.exec("SMEMBERS", key)
+    await redis.send("SMEMBERS", key)
+    let resp = await redis.recv()
     result = resp.toStringArray()
 #+end_src
 *** srem
@@ -1337,7 +1372,8 @@
     ##
     ## The command returns the number of members that were removed from
     ## the set, not including non existing members.
-    let resp = await redis.exec("SREM", concat(@[key], members))
+    await redis.send("SREM", concat(@[key], members))
+    let resp = await redis.recv()
     result = cast[uint32](resp.toInt())
 #+end_src
 ** stream
@@ -1379,7 +1415,8 @@
     ## The XACK command removes one or multiple messages from the
     ## pending entries list (PEL) of a stream consumer group. The
     ## command returns the number of messages successfully acknowledged.
-    let resp = await redis.exec("XACK", concat(@[key, group], ids))
+    await redis.send("XACK", concat(@[key, group], ids))
+    let resp = await redis.recv()
     result = cast[uint32](resp.toInt())
 #+end_src
 *** xadd
@@ -1398,7 +1435,8 @@
     for pair in pairs:
       args.add(pair[0])
       args.add(pair[1])
-    let resp = await redis.exec("XADD", args)
+    await redis.send("XADD", args)
+    let resp = await redis.recv()
     result = resp.toString()
 #+end_src
 *** xclaim
@@ -1421,7 +1459,8 @@
       args.add($retrycount)
     if force:
       args.add("FORCE")
-    let resp = await redis.exec("XCLAIM", args)
+    await redis.send("XCLAIM", args)
+    let resp = await redis.recv()
     result = resp.toSequenceTupleTable()
 #+end_src
 *** xdel
@@ -1431,14 +1470,16 @@
     ## number of entries deleted, that may be different from the number
     ## of IDs passed to the command in case certain IDs do not
     ## exist. The command return the number of entries actually deleted.
-    let resp = await redis.exec("XDEL", concat(@[key], ids))
+    await redis.send("XDEL", concat(@[key], ids))
+    let resp = await redis.recv()
     result = cast[uint32](resp.toInt())
 #+end_src
 *** xgroup_create
 #+begin_src nim :noweb-ref xgroup-create
   proc xgroup_create*(redis: Redis | AsyncRedis, key: string, groupname: string, id: string = "$"): Future[bool] {.multisync.} =
     ## Create a new consumer group associated with a stream.
-    let resp = await redis.exec("XGROUP", "CREATE", key, groupname, id)
+    await redis.send("XGROUP", "CREATE", key, groupname, id)
+    let resp = await redis.recv()
     let str = resp.toString()
     if str.isSome() and str.get() == "OK":
       result = true
@@ -1449,7 +1490,8 @@
 #+begin_src nim :noweb-ref xgroup-setid
   proc xgroup_setid*(redis: Redis | AsyncRedis, key: string, groupname: string, id: string = "$"): Future[bool] {.multisync.} =
     ## Set the consumer group last delivered ID to something else.
-    let resp = await redis.exec("XGROUP", "SETID", key, groupname, id)
+    await redis.send("XGROUP", "SETID", key, groupname, id)
+    let resp = await redis.recv()
     let str = resp.toString()
     if str.isSome() and str.get() == "OK":
       result = true
@@ -1460,14 +1502,16 @@
 #+begin_src nim :noweb-ref xgroup-destroy
   proc xgroup_destroy*(redis: Redis | AsyncRedis, key: string, groupname: string): Future[uint32] {.multisync.} =
     ## Destroy a consumer group.
-    let resp = await redis.exec("XGROUP", "DESTROY", key, groupname)
+    await redis.send("XGROUP", "DESTROY", key, groupname)
+    let resp = await redis.recv()
     result = cast[uint32](resp.toInt())
 #+end_src
 *** xgroup_delconsumer
 #+begin_src nim :noweb-ref xgroup-delconsumer
   proc xgroup_delconsumer*(redis: Redis | AsyncRedis, key: string, groupname: string, consumername: string): Future[uint32] {.multisync.} =
     ## Remove a specific consumer from a consumer group.
-    let resp = await redis.exec("XGROUP", "DELCONSUMER", key, groupname, consumername)
+    await redis.send("XGROUP", "DELCONSUMER", key, groupname, consumername)
+    let resp = await redis.recv()
     result = cast[uint32](resp.toInt())
 #+end_src
 *** xlen
@@ -1476,7 +1520,8 @@
     ## Returns the number of entries inside a stream. If the specified
     ## key does not exist the command returns zero, as if the stream was
     ## empty.
-    let resp = await redis.exec("XLEN", key)
+    await redis.send("XLEN", key)
+    let resp = await redis.recv()
     result = cast[uint32](resp.toInt())
 #+end_src
 *** xpending
@@ -1497,7 +1542,8 @@
     ## this message was delivered to this consumer.
     ##
     ## 4.The number of times this message was delivered.
-    let resp = await redis.exec("XPENDING", key, group)
+    await redis.send("XPENDING", key, group)
+    let resp = await redis.recv()
     var pairs: seq[(string, uint32)] = @[]
     if resp.kind == rkArray and resp.array.isSome and len(resp.array.get()) == 4:
       let
@@ -1536,7 +1582,8 @@
     var args = @[key, group, $start, $stop, $count]
     if consumer != "":
       args.add(consumer)
-    let resp = await redis.exec("XPENDING", args)
+    await redis.send("XPENDING", args)
+    let resp = await redis.recv()
     result = @[]
     if resp.kind == rkArray and resp.array.isSome:
       for item in resp.array.get():
@@ -1559,7 +1606,8 @@
     if count != 0:
       args.add("COUNT")
       args.add($count)
-    let resp = await redis.exec("XRANGE", args)
+    await redis.send("XRANGE", args)
+    let resp = await redis.recv()
     result = resp.toSequenceTupleTable()
 #+end_src
 *** xread
@@ -1589,7 +1637,8 @@
     for keyids in keyids:
       keys.add(keyids[0])
       ids.add(keyids[1])
-    let resp = await redis.exec("XREAD", concat(args, keys, ids))
+    await redis.send("XREAD", concat(args, keys, ids))
+    let resp = await redis.recv()
     <<get-xread-result>>
 #+end_src
 *** xreadgroup
@@ -1619,7 +1668,8 @@
     for keyid in keyids:
       keys.add(keyid[0])
       ids.add(keyid[1])
-    let resp = await redis.exec("XREADGROUP", concat(args, keys, ids))
+    await redis.send("XREADGROUP", concat(args, keys, ids))
+    let resp = await redis.recv()
     <<get-xread-result>>
 #+end_src
 *** xrevrange
@@ -1632,7 +1682,8 @@
     if count != 0:
       args.add("COUNT")
       args.add($count)
-    let resp = await redis.exec("XREVRANGE", args)
+    await redis.send("XREVRANGE", args)
+    let resp = await redis.recv()
     result = resp.toSequenceTupleTable()
 #+end_src
 *** xtrim
@@ -1640,7 +1691,8 @@
   proc xtrim*(redis: Redis | AsyncRedis, key: string, count: uint32): Future[uint32] {.multisync.} =
     ## XTRIM trims the stream to a given number of items, evicting older
     ## items (items with lower IDs) if needed.
-    let resp = await redis.exec("XTRIM", key, "MAXLEN", "~", $count)
+    await redis.send("XTRIM", key, "MAXLEN", "~", $count)
+    let resp = await redis.recv()
     result = cast[uint32](resp.toInt())
 #+end_src
 ** sorted set
@@ -1675,7 +1727,8 @@
     for pair in pairs:
       args.add($pair[0])
       args.add(pair[1])
-    let resp = await redis.exec("ZADD", args)
+    await redis.send("ZADD", args)
+    let resp = await redis.recv()
     result = cast[uint32](resp.toInt())
 #+end_src
 *** zcard
@@ -1686,7 +1739,8 @@
     ##
     ## The command returns the cardinality (number of elements) of the
     ## sorted set, or 0 if key does not exist.
-    let resp = await redis.exec("ZCARD", key)
+    await redis.send("ZCARD", key)
+    let resp = await redis.recv()
     result = cast[uint32](resp.toInt())
 #+end_src
 *** zrange
@@ -1697,7 +1751,8 @@
     ## to the highest score.
     ##
     ## The command returns list of elements in the specified range.
-    let resp = await redis.exec("ZRANGE", key, $start, $stop)
+    await redis.send("ZRANGE", key, $start, $stop)
+    let resp = await redis.recv()
     result = resp.toStringArray()
 #+end_src
 *** zrange_withscores
@@ -1709,7 +1764,8 @@
     ##
     ## The command returns list of elements with their scores in the
     ## specified range.
-    let resp = await redis.exec("ZRANGE", key, $start, $stop, "WITHSCORES")
+    await redis.send("ZRANGE", key, $start, $stop, "WITHSCORES")
+    let resp = await redis.recv()
     <<get-sorted-set-result>>
 #+end_src
 *** zrem
@@ -1720,7 +1776,8 @@
     ##
     ## The command returns the number of members removed from the sorted
     ## set, not including non existing members.
-    let resp = await redis.exec("ZREM", concat(@[key], members))
+    await redis.send("ZREM", concat(@[key], members))
+    let resp = await redis.recv()
     result = cast[uint32](resp.toInt())
 #+end_src
 *** zrevrange
@@ -1731,7 +1788,8 @@
     ## highest to the lowest score.
     ##
     ## The command returns list of elements in the specified range.
-    let resp = await redis.exec("ZREVRANGE", key, $start, $stop)
+    await redis.send("ZREVRANGE", key, $start, $stop)
+    let resp = await redis.recv()
     result = resp.toStringArray()
 #+end_src
 *** zrevrange_withscores
@@ -1743,14 +1801,16 @@
     ##
     ## The command returns list of elements with their scores in the
     ## specified range.
-    let resp = await redis.exec("ZREVRANGE", key, $start, $stop, "WITHSCORES")
+    await redis.send("ZREVRANGE", key, $start, $stop, "WITHSCORES")
+    let resp = await redis.recv()
     <<get-sorted-set-result>>
 #+end_src
 *** zscore
 #+begin_src nim :noweb-ref zscore
   proc zscore*(redis: Redis | AsyncRedis, key: string, member: string): Future[int] {.multisync.} =
     ## Returns the score of member in the sorted set at key.
-    let resp = await redis.exec("ZSCORE", key, member)
+    await redis.send("ZSCORE", key, member)
+    let resp = await redis.recv()
     let value = resp.toString()
     if value.isSome:
       result = parseInt(value.get())
