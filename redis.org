@@ -47,9 +47,14 @@
 #+end_src
 ** 接口类型
 #+begin_src nim :noweb-ref interface-type
+  Pipeline = ref object
+    enabled: bool
+    buffer: string
+
   RedisBase[TSocket] = ref object of RootObj
     socket: TSocket
     connected: bool
+    pipeline: Pipeline
     timeout*: int
     syntax_action_delegate: SyntaxActionDelegate[SyntaxContext]
     syntax_guard_delegate: SyntaxGuardDelegate[SyntaxContext]
@@ -788,6 +793,8 @@
 
   <<key-value>>
 
+  <<transaction>>
+
   <<hash>>
 
   <<list>>
@@ -806,6 +813,10 @@
     result.timeout = timeout
     result.socket.connect(host, port)
     result.connected = true
+    result.pipeline = Pipeline(
+      buffer: "",
+      enabled: false,
+    )
 
     result.syntax_action_delegate = SyntaxActionDelegate[SyntaxContext](
       shift: shift[SyntaxContext],
@@ -861,6 +872,10 @@
     result = AsyncRedis(socket: newAsyncSocket(buffered = false), send_queue: initDeque[Future[void]]())
     await result.socket.connect(host, port)
     result.connected = true
+    result.pipeline = Pipeline(
+      buffer: "",
+      enabled: false,
+    )
 
     result.syntax_action_delegate = SyntaxActionDelegate[SyntaxContext](
       shift: shift[SyntaxContext],
@@ -915,15 +930,25 @@
     ## execute command `command` with arguments seq `args`
 
     let data = encode(cmd)
-    when this is Redis:
-      this.socket.send(data)
+    if this.pipeline.enabled:
+      this.pipeline.buffer.add(data)
     else:
-      if this.current_command.isSome:
-        let sendfut = newFuture[void]("redis.send")
-        this.send_queue.addLast(sendfut)
-        await sendfut
-      this.current_command = some(data)
-      await this.socket.send(data)
+      when this is Redis:
+        this.socket.send(data)
+      else:
+        if this.current_command.isSome:
+          let sendfut = newFuture[void]("redis.send")
+          this.send_queue.addLast(sendfut)
+          await sendfut
+        this.current_command = some(data)
+        await this.socket.send(data)
+
+  proc send(this: Redis | AsyncRedis, command: string): Future[void] {.multisync.} =
+    var parameters = newSeq[RedisValue](1)
+    parameters[0] = RedisValue(kind: rkBulkString, bulkstr: some(command))
+    let cmd = RedisValue(kind: rkArray, array: some(parameters))
+
+    await send(this, cmd)
 
   proc send(this: Redis | AsyncRedis, command: string, arg0: string): Future[void] {.multisync.} =
     ## execute command `command` with arguments seq `args`
@@ -985,31 +1010,34 @@
 ** recv
 #+begin_src nim :noweb-ref recv
   proc recv(this: Redis | AsyncRedis): Future[RedisValue] {.multisync.} =
-    <<init-fsm>>
+    if not this.pipeline.enabled:
+      <<init-fsm>>
 
-    when this is Redis:
-      var timeout = -1
-      if this.timeout != 0:
-        timeout = this.timeout
-      while lctx.sctx.done == false:
-        let response = this.socket.recv(1024, timeout = timeout)
-        if response == "":
-          raise newException(RedisError, "Server closed connection prematurely")
-        <<execute-fsm>>
-      (lfsm, lctx) = eof[LexerContext](lfsm, lctx)
-      return lctx.sctx.target.val
+      when this is Redis:
+        var timeout = -1
+        if this.timeout != 0:
+          timeout = this.timeout
+        while lctx.sctx.done == false:
+          let response = this.socket.recv(1024, timeout = timeout)
+          if response == "":
+            raise newException(RedisError, "Server closed connection prematurely")
+          <<execute-fsm>>
+        (lfsm, lctx) = eof[LexerContext](lfsm, lctx)
+        return lctx.sctx.target.val
+      else:
+        while lctx.sctx.done == false:
+          let response = await this.socket.recv(1024)
+          if response == "":
+            raise newException(RedisError, "Server closed connection prematurely")
+          <<execute-fsm>>
+        (lfsm, lctx) = eof[LexerContext](lfsm, lctx)
+        result = lctx.sctx.target.val
+        this.current_command = none(string)
+        if len(this.send_queue) > 0:
+          let fut = this.send_queue.popFirst()
+          fut.complete()
     else:
-      while lctx.sctx.done == false:
-        let response = await this.socket.recv(1024)
-        if response == "":
-          raise newException(RedisError, "Server closed connection prematurely")
-        <<execute-fsm>>
-      (lfsm, lctx) = eof[LexerContext](lfsm, lctx)
-      result = lctx.sctx.target.val
-      this.current_command = none(string)
-      if len(this.send_queue) > 0:
-        let fut = this.send_queue.popFirst()
-        fut.complete()
+      return RedisValue(kind: rkBulkString, bulkstr: none(string))
 #+end_src
 *** 初始化状态机
 #+begin_src nim :noweb-ref init-fsm
@@ -1128,6 +1156,53 @@
       result = true
     else:
       result = false
+#+end_src
+** transaction
+*** 框架
+#+begin_src nim :noweb-ref transaction
+  <<multi>>
+
+  <<exec>>
+
+  <<discard-multi>>
+#+end_src
+*** multi
+#+begin_src nim :noweb-ref multi
+  proc multi*(redis: Redis | AsyncRedis): Future[bool] {.multisync.} =
+    ## Marks the start of a transaction block.
+    redis.pipeline.enabled = true
+    await redis.send("MULTI")
+    result = true
+#+end_src
+*** exec
+#+begin_src nim :noweb-ref exec
+  proc exec*(redis: Redis | AsyncRedis): Future[seq[RedisValue]] {.multisync.} =
+    ## Executes all previously queued commands in a transaction and
+    ## restores the connection state to normal.
+    await redis.send("EXEC")
+    if redis.pipeline.buffer.len > 0:
+      let data = redis.pipeline.buffer
+      when redis is Redis:
+        redis.socket.send(data)
+      else:
+        if redis.current_command.isSome:
+          let sendfut = newFuture[void]("redis.send")
+          redis.send_queue.addLast(sendfut)
+          await sendfut
+        redis.current_command = some(data)
+        await redis.socket.send(data)
+    redis.pipeline.buffer = ""
+    redis.pipeline.enabled = false
+    let resp = await redis.recv()
+    result = resp.toArray()
+#+end_src
+*** discard_multi
+#+begin_src nim :noweb-ref discard-multi
+  proc discard_multi*(redis: Redis | AsyncRedis): Future[bool] {.multisync.} =
+    ## Discard all commands issued after MULTI
+    redis.pipeline.enabled = false
+    redis.pipeline.buffer = ""
+    result = true
 #+end_src
 ** hash
 *** 框架
@@ -2011,6 +2086,15 @@
           let array = elements.array.get()
           let id = if array[0].kind == rkBulkString and array[0].bulkstr.isSome: array[0].bulkstr.get() else: ""
           result.add((id, toTable(array[1])))
+
+  proc toArray(v: RedisValue): seq[RedisValue] =
+    if v.kind == rkArray:
+      if v.array.isNone:
+        return @[]
+      else:
+        result = v.array.get()
+    else:
+      result = @[]
 #+end_src
 ** 获取 xread 结果
 #+begin_src nim :noweb-ref get-xread-result

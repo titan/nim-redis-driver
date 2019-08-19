@@ -31,6 +31,8 @@
 
     <<sync-key-value>>
 
+    <<sync-transaction>>
+
     <<sync-hash>>
 
     <<sync-list>>
@@ -60,6 +62,23 @@
       expireresp == true
       setexresp == true
       delresp == true
+#+end_src
+** transaction
+#+begin_src nim :noweb-ref sync-transaction
+  test "transaction":
+    discard redis.multi()
+    discard redis.set("key", "value")
+    discard redis.del("key")
+    let execresp = redis.exec()
+    discard redis.multi()
+    discard redis.set("key", "value")
+    discard redis.discard_multi()
+    let getresp = redis.get("key")
+
+    check:
+      execresp.len == 2
+      $execresp[0] == "OK" and $execresp[1] == "1"
+      getresp.isNone()
 #+end_src
 ** hash
 #+begin_src nim :noweb-ref sync-hash
@@ -201,6 +220,8 @@
 
     <<async-key-value>>
 
+    <<async-transaction>>
+
     <<async-hash>>
 
     <<async-list>>
@@ -230,6 +251,23 @@
       expireresp == true
       setexresp == true
       delresp == true
+#+end_src
+** transaction
+#+begin_src nim :noweb-ref async-transaction
+  test "transaction":
+    discard waitFor redis.multi()
+    discard waitFor redis.set("key", "value")
+    discard waitFor redis.del("key")
+    let execresp = waitFor redis.exec()
+    discard waitFor redis.multi()
+    discard waitFor redis.set("key", "value")
+    discard waitFor redis.discard_multi()
+    let getresp = waitFor redis.get("key")
+
+    check:
+      execresp.len == 2
+      $execresp[0] == "OK" and $execresp[1] == "1"
+      getresp.isNone()
 #+end_src
 ** hash
 #+begin_src nim :noweb-ref async-hash
