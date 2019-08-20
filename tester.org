@@ -53,6 +53,11 @@
     let expireresp = redis.expire("key", 1000)
     let setexresp = redis.setex("key", "value", 1000)
     let delresp = redis.del("key")
+    let incrresp = redis.incr("number")
+    let incrbyresp = redis.incrby("number", 5)
+    let decrbyresp = redis.decrby("number", 5)
+    let decrresp = redis.decr("number")
+    discard redis.del("number")
 
     check:
       setresp == true
@@ -62,6 +67,10 @@
       expireresp == true
       setexresp == true
       delresp == true
+      incrresp == 1
+      incrbyresp == 6
+      decrbyresp == 1
+      decrresp == 0
 #+end_src
 ** transaction
 #+begin_src nim :noweb-ref sync-transaction
@@ -242,6 +251,11 @@
     let expireresp = waitFor redis.expire("key", 1000)
     let setexresp = waitFor redis.setex("key", "value", 1000)
     let delresp = waitFor redis.del("key")
+    let incrresp = waitFor redis.incr("number")
+    let incrbyresp = waitFor redis.incrby("number", 5)
+    let decrbyresp = waitFor redis.decrby("number", 5)
+    let decrresp = waitFor redis.decr("number")
+    discard waitFor redis.del("number")
 
     check:
       setresp == true
@@ -251,6 +265,10 @@
       expireresp == true
       setexresp == true
       delresp == true
+      incrresp == 1
+      incrbyresp == 6
+      decrbyresp == 1
+      decrresp == 0
 #+end_src
 ** transaction
 #+begin_src nim :noweb-ref async-transaction

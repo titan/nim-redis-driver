@@ -1068,6 +1068,10 @@
 ** key/value
 *** 框架
 #+begin_src nim :noweb-ref key-value
+  <<decr>>
+
+  <<decrby>>
+
   <<del>>
 
   <<exists>>
@@ -1076,9 +1080,29 @@
 
   <<get>>
 
+  <<incr>>
+
+  <<incrby>>
+
   <<set>>
 
   <<setex>>
+#+end_src
+*** decr
+#+begin_src nim :noweb-ref decr
+  proc decr*(redis: Redis | AsyncRedis, key: string): Future[int] {.multisync.} =
+    ## Decrements the number stored at key by one.
+    await redis.send("DECR", key)
+    let resp = await redis.recv()
+    result = resp.toInt()
+#+end_src
+*** decrby
+#+begin_src nim :noweb-ref decrby
+  proc decrby*(redis: Redis | AsyncRedis, key: string, decrement: int): Future[int] {.multisync.} =
+    ## Decrements the number stored at key by decrement.
+    await redis.send("DECRBY", @[key, $decrement])
+    let resp = await redis.recv()
+    result = resp.toInt()
 #+end_src
 *** del
 #+begin_src nim :noweb-ref del
@@ -1132,6 +1156,22 @@
     await redis.send("GET", key)
     let resp = await redis.recv()
     result = resp.toString()
+#+end_src
+*** incr
+#+begin_src nim :noweb-ref incr
+  proc incr*(redis: Redis | AsyncRedis, key: string): Future[int] {.multisync.} =
+    ## Increments the number stored at key by one.
+    await redis.send("INCR", key)
+    let resp = await redis.recv()
+    result = resp.toInt()
+#+end_src
+*** incrby
+#+begin_src nim :noweb-ref incrby
+  proc incrby*(redis: Redis | AsyncRedis, key: string, increment: int): Future[int] {.multisync.} =
+    ## Increments the number stored at key by increment.
+    await redis.send("INCRBY", @[key, $increment])
+    let resp = await redis.recv()
+    result = resp.toInt()
 #+end_src
 *** set
 #+begin_src nim :noweb-ref set
