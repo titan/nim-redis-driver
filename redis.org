@@ -1821,11 +1821,19 @@
 
   <<zrange-withscores>>
 
+  <<zrangebyscore>>
+
+  <<zrangebyscore-withscores>>
+
   <<zrem>>
 
   <<zrevrange>>
 
   <<zrevrange-withscores>>
+
+  <<zrevrangebyscore>>
+
+  <<zrevrangebyscore-withscores>>
 
   <<zscore>>
 #+end_src
@@ -1883,6 +1891,43 @@
     let resp = await redis.recv()
     <<get-sorted-set-result>>
 #+end_src
+*** zrangebyscore
+#+begin_src nim :noweb-ref zrangebyscore
+  proc zrangebyscore*(redis: Redis | AsyncRedis, key: string, start: string, stop: string, offset: int = 0, count: int = 0): Future[seq[string]] {.multisync.} =
+    ## Returns all the elements in the sorted set at key with a score
+    ## between min and max (including elements with score equal to min
+    ## or max). The elements are considered to be ordered from low to
+    ## high scores.
+    ##
+    ## The command returns list of elements in the specified range.
+    var args = @[key, start, stop]
+    if count != 0:
+      args.add("LIMIT")
+      args.add($offset)
+      args.add($count)
+    await redis.send("ZRANGEBYSCORE", args)
+    let resp = await redis.recv()
+    result = resp.toStringArray()
+#+end_src
+*** zrangebyscore_withscores
+#+begin_src nim :noweb-ref zrangebyscore-withscores
+  proc zrangebyscore_withscores*(redis: Redis | AsyncRedis, key: string, start: string, stop: string, offset: int = 0, count: int = 0): Future[seq[(string, int)]] {.multisync.} =
+    ## Returns all the elements in the sorted set at key with a score
+    ## between min and max (including elements with score equal to min
+    ## or max). The elements are considered to be ordered from low to
+    ## high scores.
+    ##
+    ## The command returns list of elements with their scores in the
+    ## specified range.
+    var args = @[key, start, stop, "WITHSCORES"]
+    if count != 0:
+      args.add("LIMIT")
+      args.add($offset)
+      args.add($count)
+    await redis.send("ZRANGEBYSCORE", args)
+    let resp = await redis.recv()
+    <<get-sorted-set-result>>
+#+end_src
 *** zrem
 #+begin_src nim :noweb-ref zrem
   proc zrem*(redis: Redis | AsyncRedis, key: string, members: seq[string]): Future[uint32] {.multisync.} =
@@ -1917,6 +1962,51 @@
     ## The command returns list of elements with their scores in the
     ## specified range.
     await redis.send("ZREVRANGE", key, $start, $stop, "WITHSCORES")
+    let resp = await redis.recv()
+    <<get-sorted-set-result>>
+#+end_src
+*** zrevrangebyscore
+#+begin_src nim :noweb-ref zrevrangebyscore
+  proc zrevrangebyscore*(redis: Redis | AsyncRedis, key: string, start: string, stop: string, offset: int = 0, count: int = 0): Future[seq[string]] {.multisync.} =
+    ## Returns all the elements in the sorted set at key with a score
+    ## between max and min (including elements with score equal to max
+    ## or min). In contrary to the default ordering of sorted sets, for
+    ## this command the elements are considered to be ordered from high
+    ## to low scores.
+    ##
+    ## The elements having the same score are returned in reverse
+    ## lexicographical order.
+    ##
+    ## The command returns list of elements in the specified range.
+    var args = @[key, start, stop]
+    if count != 0:
+      args.add("LIMIT")
+      args.add($offset)
+      args.add($count)
+    await redis.send("ZREVRANGEBYSCORE", args)
+    let resp = await redis.recv()
+    result = resp.toStringArray()
+#+end_src
+*** zrevrangebyscore_withscores
+#+begin_src nim :noweb-ref zrevrangebyscore-withscores
+  proc zrevrangebyscore_withscores*(redis: Redis | AsyncRedis, key: string, start: string, stop: string, offset: int = 0, count: int = 0): Future[seq[(string, int)]] {.multisync.} =
+    ## Returns all the elements in the sorted set at key with a score
+    ## between max and min (including elements with score equal to max
+    ## or min). In contrary to the default ordering of sorted sets, for
+    ## this command the elements are considered to be ordered from high
+    ## to low scores.
+    ##
+    ## The elements having the same score are returned in reverse
+    ## lexicographical order.
+    ##
+    ## The command returns list of elements with their scores in the
+    ## specified range.
+    var args = @[key, start, stop, "WITHSCORES"]
+    if count != 0:
+      args.add("LIMIT")
+      args.add($offset)
+      args.add($count)
+    await redis.send("ZREVRANGEBYSCORE", args)
     let resp = await redis.recv()
     <<get-sorted-set-result>>
 #+end_src

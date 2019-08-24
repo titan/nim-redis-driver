@@ -196,8 +196,12 @@
     let zcardresp = redis.zcard("sorted-set")
     let zrangeresp = redis.zrange("sorted-set", 0, -1)
     let zrangewithscoresresp = redis.zrange_withscores("sorted-set", 0, -1)
+    let zrangebyscoreresp = redis.zrangebyscore("sorted-set", "1", "2")
+    let zrangebyscorewithscoresresp = redis.zrangebyscore_withscores("sorted-set", "1", "2", 0, 10)
     let zrevrangeresp = redis.zrevrange("sorted-set", 0, -1)
     let zrevrangewithscoresresp = redis.zrevrange_withscores("sorted-set", 0, -1)
+    let zrevrangebyscoreresp = redis.zrevrangebyscore("sorted-set", "2", "1")
+    let zrevrangebyscorewithscoresresp = redis.zrevrangebyscore_withscores("sorted-set", "2", "1", 0, 10)
     let zscoreresp = redis.zscore("sorted-set", "A")
     let zremresp = redis.zrem("sorted-set", @["A", "B", "C"])
 
@@ -206,8 +210,12 @@
       zcardresp == 2
       len(zrangeresp) == 2 and zrangeresp[0] == "A" and zrangeresp[1] == "B"
       len(zrangewithscoresresp) == 2 and zrangewithscoresresp[0][0] == "A" and zrangewithscoresresp[0][1] == 1 and zrangewithscoresresp[1][0] == "B" and zrangewithscoresresp[1][1] == 2
+      len(zrangebyscoreresp) == 2 and zrangebyscoreresp[0] == "A" and zrangebyscoreresp[1] == "B"
+      len(zrangebyscorewithscoresresp) == 2 and zrangebyscorewithscoresresp[0][0] == "A" and zrangebyscorewithscoresresp[0][1] == 1 and zrangebyscorewithscoresresp[1][0] == "B" and zrangebyscorewithscoresresp[1][1] == 2
       len(zrevrangeresp) == 2 and zrevrangeresp[0] == "B" and zrevrangeresp[1] == "A"
       len(zrevrangewithscoresresp) == 2 and zrevrangewithscoresresp[0][0] == "B" and zrevrangewithscoresresp[0][1] == 2 and zrevrangewithscoresresp[1][0] == "A" and zrevrangewithscoresresp[1][1] == 1
+      len(zrevrangebyscoreresp) == 2 and zrevrangebyscoreresp[0] == "B" and zrevrangebyscoreresp[1] == "A"
+      len(zrevrangebyscorewithscoresresp) == 2 and zrevrangebyscorewithscoresresp[0][0] == "B" and zrevrangebyscorewithscoresresp[0][1] == 2 and zrevrangebyscorewithscoresresp[1][0] == "A" and zrevrangebyscorewithscoresresp[1][1] == 1
       zscoreresp == 1
       zremresp == 2
 #+end_src
@@ -394,8 +402,12 @@
     let zcardresp = waitFor redis.zcard("sorted-set")
     let zrangeresp = waitFor redis.zrange("sorted-set", 0, -1)
     let zrangewithscoresresp = waitFor redis.zrange_withscores("sorted-set", 0, -1)
+    let zrangebyscoreresp = waitFor redis.zrangebyscore("sorted-set", "1", "2")
+    let zrangebyscorewithscoresresp = waitFor redis.zrangebyscore_withscores("sorted-set", "1", "2", 0, 10)
     let zrevrangeresp = waitFor redis.zrevrange("sorted-set", 0, -1)
     let zrevrangewithscoresresp = waitFor redis.zrevrange_withscores("sorted-set", 0, -1)
+    let zrevrangebyscoreresp = waitFor redis.zrevrangebyscore("sorted-set", "2", "1")
+    let zrevrangebyscorewithscoresresp = waitFor redis.zrevrangebyscore_withscores("sorted-set", "2", "1", 0, 10)
     let zscoreresp = waitFor redis.zscore("sorted-set", "A")
     let zremresp = waitFor redis.zrem("sorted-set", @["A", "B", "C"])
 
@@ -404,8 +416,12 @@
       zcardresp == 2
       len(zrangeresp) == 2 and zrangeresp[0] == "A" and zrangeresp[1] == "B"
       len(zrangewithscoresresp) == 2 and zrangewithscoresresp[0][0] == "A" and zrangewithscoresresp[0][1] == 1 and zrangewithscoresresp[1][0] == "B" and zrangewithscoresresp[1][1] == 2
+      len(zrangebyscoreresp) == 2 and zrangebyscoreresp[0] == "A" and zrangebyscoreresp[1] == "B"
+      len(zrangebyscorewithscoresresp) == 2 and zrangebyscorewithscoresresp[0][0] == "A" and zrangebyscorewithscoresresp[0][1] == 1 and zrangebyscorewithscoresresp[1][0] == "B" and zrangebyscorewithscoresresp[1][1] == 2
       len(zrevrangeresp) == 2 and zrevrangeresp[0] == "B" and zrevrangeresp[1] == "A"
       len(zrevrangewithscoresresp) == 2 and zrevrangewithscoresresp[0][0] == "B" and zrevrangewithscoresresp[0][1] == 2 and zrevrangewithscoresresp[1][0] == "A" and zrevrangewithscoresresp[1][1] == 1
+      len(zrevrangebyscoreresp) == 2 and zrevrangebyscoreresp[0] == "B" and zrevrangebyscoreresp[1] == "A"
+      len(zrevrangebyscorewithscoresresp) == 2 and zrevrangebyscorewithscoresresp[0][0] == "B" and zrevrangebyscorewithscoresresp[0][1] == 2 and zrevrangebyscorewithscoresresp[1][0] == "A" and zrevrangebyscorewithscoresresp[1][1] == 1
       zscoreresp == 1
       zremresp == 2
 #+end_src
