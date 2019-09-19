@@ -1262,6 +1262,8 @@
   <<hmset>>
 
   <<hset>>
+
+  <<hvals>>
 #+end_src
 *** hdel
 #+begin_src nim :noweb-ref hdel
@@ -1334,6 +1336,14 @@
     await redis.send("HSET", key, field, value)
     let resp = await redis.recv()
     result = cast[uint32](resp.toInt())
+#+end_src
+*** hvals
+#+begin_src nim :noweb-ref hvals
+  proc hvals*(redis: Redis | AsyncRedis, key: string): Future[seq[string]] {.multisync.} =
+    ## Returns all values in the hash stored at key.
+    await redis.send("HVALS", key)
+    let resp = await redis.recv()
+    result = resp.toStringArray()
 #+end_src
 ** list
 *** 框架
