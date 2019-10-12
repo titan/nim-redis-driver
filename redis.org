@@ -1903,14 +1903,22 @@
 #+end_src
 *** zrangebyscore
 #+begin_src nim :noweb-ref zrangebyscore
-  proc zrangebyscore*(redis: Redis | AsyncRedis, key: string, start: string, stop: string, offset: int = 0, count: int = 0): Future[seq[string]] {.multisync.} =
+  proc zrangebyscore*(redis: Redis | AsyncRedis, key: string, start: int, stop: int, start_exclusive: bool = false, stop_exclusive: bool = false, offset: int = 0, count: int = 0): Future[seq[string]] {.multisync.} =
     ## Returns all the elements in the sorted set at key with a score
     ## between min and max (including elements with score equal to min
     ## or max). The elements are considered to be ordered from low to
     ## high scores.
     ##
     ## The command returns list of elements in the specified range.
-    var args = @[key, start, stop]
+    var args = @[key]
+    if start_exclusive:
+      args.add("(" & $start)
+    else:
+      args.add($start)
+    if stop_exclusive:
+      args.add("(" & $stop)
+    else:
+      args.add($stop)
     if count != 0:
       args.add("LIMIT")
       args.add($offset)
@@ -1921,7 +1929,7 @@
 #+end_src
 *** zrangebyscore_withscores
 #+begin_src nim :noweb-ref zrangebyscore-withscores
-  proc zrangebyscore_withscores*(redis: Redis | AsyncRedis, key: string, start: string, stop: string, offset: int = 0, count: int = 0): Future[seq[(string, int)]] {.multisync.} =
+  proc zrangebyscore_withscores*(redis: Redis | AsyncRedis, key: string, start: int, stop: int, start_exclusive: bool = false, stop_exclusive: bool = false, offset: int = 0, count: int = 0): Future[seq[(string, int)]] {.multisync.} =
     ## Returns all the elements in the sorted set at key with a score
     ## between min and max (including elements with score equal to min
     ## or max). The elements are considered to be ordered from low to
@@ -1929,7 +1937,16 @@
     ##
     ## The command returns list of elements with their scores in the
     ## specified range.
-    var args = @[key, start, stop, "WITHSCORES"]
+    var args = @[key]
+    if start_exclusive:
+      args.add("(" & $start)
+    else:
+      args.add($start)
+    if stop_exclusive:
+      args.add("(" & $stop)
+    else:
+      args.add($stop)
+    args.add("WITHSCORES")
     if count != 0:
       args.add("LIMIT")
       args.add($offset)
@@ -1977,7 +1994,7 @@
 #+end_src
 *** zrevrangebyscore
 #+begin_src nim :noweb-ref zrevrangebyscore
-  proc zrevrangebyscore*(redis: Redis | AsyncRedis, key: string, start: string, stop: string, offset: int = 0, count: int = 0): Future[seq[string]] {.multisync.} =
+  proc zrevrangebyscore*(redis: Redis | AsyncRedis, key: string, start: int, stop: int, start_exclusive: bool = false, stop_exclusive: bool = false, offset: int = 0, count: int = 0): Future[seq[string]] {.multisync.} =
     ## Returns all the elements in the sorted set at key with a score
     ## between max and min (including elements with score equal to max
     ## or min). In contrary to the default ordering of sorted sets, for
@@ -1988,7 +2005,15 @@
     ## lexicographical order.
     ##
     ## The command returns list of elements in the specified range.
-    var args = @[key, start, stop]
+    var args = @[key]
+    if start_exclusive:
+      args.add("(" & $start)
+    else:
+      args.add($start)
+    if stop_exclusive:
+      args.add("(" & $stop)
+    else:
+      args.add($stop)
     if count != 0:
       args.add("LIMIT")
       args.add($offset)
@@ -1999,7 +2024,7 @@
 #+end_src
 *** zrevrangebyscore_withscores
 #+begin_src nim :noweb-ref zrevrangebyscore-withscores
-  proc zrevrangebyscore_withscores*(redis: Redis | AsyncRedis, key: string, start: string, stop: string, offset: int = 0, count: int = 0): Future[seq[(string, int)]] {.multisync.} =
+  proc zrevrangebyscore_withscores*(redis: Redis | AsyncRedis, key: string, start: int, stop: int, start_exclusive: bool = false, stop_exclusive: bool = false, offset: int = 0, count: int = 0): Future[seq[(string, int)]] {.multisync.} =
     ## Returns all the elements in the sorted set at key with a score
     ## between max and min (including elements with score equal to max
     ## or min). In contrary to the default ordering of sorted sets, for
@@ -2011,7 +2036,16 @@
     ##
     ## The command returns list of elements with their scores in the
     ## specified range.
-    var args = @[key, start, stop, "WITHSCORES"]
+    var args = @[key]
+    if start_exclusive:
+      args.add("(" & $start)
+    else:
+      args.add($start)
+    if stop_exclusive:
+      args.add("(" & $stop)
+    else:
+      args.add($stop)
+    args.add("WITHSCORES")
     if count != 0:
       args.add("LIMIT")
       args.add($offset)
