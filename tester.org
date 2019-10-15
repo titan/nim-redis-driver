@@ -218,7 +218,7 @@
       len(zrevrangewithscoresresp) == 2 and zrevrangewithscoresresp[0][0] == "B" and zrevrangewithscoresresp[0][1] == 2 and zrevrangewithscoresresp[1][0] == "A" and zrevrangewithscoresresp[1][1] == 1
       len(zrevrangebyscoreresp) == 2 and zrevrangebyscoreresp[0] == "B" and zrevrangebyscoreresp[1] == "A"
       len(zrevrangebyscorewithscoresresp) == 2 and zrevrangebyscorewithscoresresp[0][0] == "B" and zrevrangebyscorewithscoresresp[0][1] == 2 and zrevrangebyscorewithscoresresp[1][0] == "A" and zrevrangebyscorewithscoresresp[1][1] == 1
-      zscoreresp == 1
+      zscoreresp.isSome and zscoreresp.get == 1.0
       zremresp == 2
 #+end_src
 * 异步测试
@@ -426,7 +426,7 @@
       len(zrevrangewithscoresresp) == 2 and zrevrangewithscoresresp[0][0] == "B" and zrevrangewithscoresresp[0][1] == 2 and zrevrangewithscoresresp[1][0] == "A" and zrevrangewithscoresresp[1][1] == 1
       len(zrevrangebyscoreresp) == 2 and zrevrangebyscoreresp[0] == "B" and zrevrangebyscoreresp[1] == "A"
       len(zrevrangebyscorewithscoresresp) == 2 and zrevrangebyscorewithscoresresp[0][0] == "B" and zrevrangebyscorewithscoresresp[0][1] == 2 and zrevrangebyscorewithscoresresp[1][0] == "A" and zrevrangebyscorewithscoresresp[1][1] == 1
-      zscoreresp == 1
+      zscoreresp.isSome and zscoreresp.get == 1.0
       zremresp == 2
 #+end_src
 * 辅助方法

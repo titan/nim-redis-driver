@@ -2056,15 +2056,15 @@
 #+end_src
 *** zscore
 #+begin_src nim :noweb-ref zscore
-  proc zscore*(redis: Redis | AsyncRedis, key: string, member: string): Future[int] {.multisync.} =
+  proc zscore*(redis: Redis | AsyncRedis, key: string, member: string): Future[Option[float]] {.multisync.} =
     ## Returns the score of member in the sorted set at key.
     await redis.send("ZSCORE", key, member)
     let resp = await redis.recv()
     let value = resp.toString()
     if value.isSome:
-      result = parseInt(value.get())
+      result = some(parseFloat(value.get()))
     else:
-      result = 0
+      result = none(float)
 #+end_src
 * 辅助方法
 ** 框架
