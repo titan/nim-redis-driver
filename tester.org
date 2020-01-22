@@ -57,7 +57,8 @@
     let incrbyresp = redis.incrby("number", 5)
     let decrbyresp = redis.decrby("number", 5)
     let decrresp = redis.decr("number")
-    discard redis.del("number")
+    let renameresp = redis.rename("number", "new-number")
+    discard redis.del("new-number")
 
     check:
       setresp == true
@@ -71,6 +72,7 @@
       incrbyresp == 6
       decrbyresp == 1
       decrresp == 0
+      renameresp
 #+end_src
 ** transaction
 #+begin_src nim :noweb-ref sync-transaction
@@ -206,6 +208,13 @@
     let zrevrangebyscorewithscoresresp = redis.zrevrangebyscore_withscores("sorted-set", 2, 1, offset = 0, count = 10)
     let zscoreresp = redis.zscore("sorted-set", "A")
     let zremresp = redis.zrem("sorted-set", @["A", "B", "C"])
+    discard redis.zadd("zset1", @[(1, "one"), (2, "two")])
+    discard redis.zadd("zset2", @[(1, "one"), (2, "two"), (3, "three")])
+    discard redis.zinterstore("zset-inter", @["zset1", "zset2"])
+    discard redis.zunionstore("zset-union", @["zset1", "zset2"])
+    let zinterresp = redis.zrange("zset-inter", 0, -1)
+    let zunionresp = redis.zrange("zset-union", 0, -1)
+    discard redis.del(@["zset1", "zset2", "zset-inter", "zset-union"])
 
     check:
       zaddresp == 2
@@ -220,6 +229,8 @@
       len(zrevrangebyscorewithscoresresp) == 2 and zrevrangebyscorewithscoresresp[0][0] == "B" and zrevrangebyscorewithscoresresp[0][1] == 2 and zrevrangebyscorewithscoresresp[1][0] == "A" and zrevrangebyscorewithscoresresp[1][1] == 1
       zscoreresp.isSome and zscoreresp.get == 1.0
       zremresp == 2
+      len(zinterresp) == 2 and zinterresp[0] == "one" and zinterresp[1] == "two"
+      len(zunionresp) == 3 and zunionresp[0] == "one" and zunionresp[1] == "three" and zunionresp[2] == "two"
 #+end_src
 * 异步测试
 #+begin_src nim :noweb-ref async-test-suite
@@ -265,7 +276,8 @@
     let incrbyresp = waitFor redis.incrby("number", 5)
     let decrbyresp = waitFor redis.decrby("number", 5)
     let decrresp = waitFor redis.decr("number")
-    discard waitFor redis.del("number")
+    let renameresp = waitFor redis.rename("number", "new-number")
+    discard waitFor redis.del("new-number")
 
     check:
       setresp == true
@@ -279,6 +291,7 @@
       incrbyresp == 6
       decrbyresp == 1
       decrresp == 0
+      renameresp
 #+end_src
 ** transaction
 #+begin_src nim :noweb-ref async-transaction
@@ -414,6 +427,13 @@
     let zrevrangebyscorewithscoresresp = waitFor redis.zrevrangebyscore_withscores("sorted-set", 2, 1, offset = 0, count = 10)
     let zscoreresp = waitFor redis.zscore("sorted-set", "A")
     let zremresp = waitFor redis.zrem("sorted-set", @["A", "B", "C"])
+    discard waitFor redis.zadd("zset1", @[(1, "one"), (2, "two")])
+    discard waitFor redis.zadd("zset2", @[(1, "one"), (2, "two"), (3, "three")])
+    discard waitFor redis.zinterstore("zset-inter", @["zset1", "zset2"])
+    discard waitFor redis.zunionstore("zset-union", @["zset1", "zset2"])
+    let zinterresp = waitFor redis.zrange("zset-inter", 0, -1)
+    let zunionresp = waitFor redis.zrange("zset-union", 0, -1)
+    discard waitFor redis.del(@["zset1", "zset2", "zset-inter", "zset-union"])
 
     check:
       zaddresp == 2
@@ -428,6 +448,8 @@
       len(zrevrangebyscorewithscoresresp) == 2 and zrevrangebyscorewithscoresresp[0][0] == "B" and zrevrangebyscorewithscoresresp[0][1] == 2 and zrevrangebyscorewithscoresresp[1][0] == "A" and zrevrangebyscorewithscoresresp[1][1] == 1
       zscoreresp.isSome and zscoreresp.get == 1.0
       zremresp == 2
+      len(zinterresp) == 2 and zinterresp[0] == "one" and zinterresp[1] == "two"
+      len(zunionresp) == 3 and zunionresp[0] == "one" and zunionresp[1] == "three" and zunionresp[2] == "two"
 #+end_src
 * 辅助方法
 ** 框架
