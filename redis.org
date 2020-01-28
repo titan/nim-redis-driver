@@ -14,7 +14,7 @@
 
 * 基本框架
 #+begin_src nim :tangle ${BUILDDIR}/redis.nim
-  import asyncdispatch, asyncnet, deques, net, options, sequtils, strutils, tables
+  import asyncdispatch, asyncnet, deques, net, options, sequtils, strtabs, strutils, tables
   import redis/lexer
   import redis/syntax
 
@@ -214,7 +214,7 @@
 #+end_src
 *** 执行动作
 #+begin_src nim :noweb-ref lexer-action
-  proc feed_event[T](ctx: var T, sttype: SyntaxTerminalType, val: SyntaxValue) =
+  proc feed_event[T](ctx: T, sttype: SyntaxTerminalType, val: SyntaxValue) =
     ctx.sctx.input = val
     ctx.sctx.input_type = sttype
     case sttype:
@@ -240,7 +240,7 @@
       of stRedisArrayItems: (ctx.sfsm, ctx.sctx) = redisarrayitems(ctx.sfsm, ctx.sctx)
     ctx.sctx.fsm = ctx.sfsm
 
-  proc consume_queue[T](ctx: var T) =
+  proc consume_queue[T](ctx: T) =
     while len(ctx.sctx.queue) > 0:
       var (sttype, item) = ctx.sctx.queue.popFirst
       feed_event(ctx, sttype, item)
@@ -1581,7 +1581,7 @@
 #+end_src
 *** xclaim
 #+begin_src nim :noweb-ref xclaim
-  proc xclaim*(redis: Redis | AsyncRedis, key: string, group: string, consumer: string, minidletime: uint32, ids: seq[string], idle: uint32 = 0, time: uint32 = 0, retrycount: uint32 = 0, force: bool = false): Future[seq[(string, TableRef[string, string])]] {.multisync.} =
+  proc xclaim*(redis: Redis | AsyncRedis, key: string, group: string, consumer: string, minidletime: uint32, ids: seq[string], idle: uint32 = 0, time: uint32 = 0, retrycount: uint32 = 0, force: bool = false): Future[seq[(string, StringTableRef)]] {.multisync.} =
     ## In the context of a stream consumer group, this command changes
     ## the ownership of a pending message, so that the new owner is the
     ## consumer specified as the command argument. The command returns
@@ -1738,7 +1738,7 @@
 #+end_src
 *** xrange
 #+begin_src nim :noweb-ref xrange
-  proc xrange*(redis: Redis | AsyncRedis, key: string, start: string = "-", stop: string = "+", count: uint32 = 0): Future[seq[(string, TableRef[string, string])]] {.multisync.} =
+  proc xrange*(redis: Redis | AsyncRedis, key: string, start: string = "-", stop: string = "+", count: uint32 = 0): Future[seq[(string, StringTableRef)]] {.multisync.} =
     ## The command returns the stream entries matching a given range of
     ## IDs. The command returns the entries with IDs matching the
     ## specified range.
@@ -1752,7 +1752,7 @@
 #+end_src
 *** xread
 #+begin_src nim :noweb-ref xread
-  proc xread*(redis: Redis | AsyncRedis, keyids: seq[(string, string)], count: uint32 = 0, timeout: uint32 = 0): Future[seq[(string, seq[(string, TableRef[string, string])])]] {.multisync.} =
+  proc xread*(redis: Redis | AsyncRedis, keyids: seq[(string, string)], count: uint32 = 0, timeout: uint32 = 0): Future[seq[(string, seq[(string, StringTableRef)])]] {.multisync.} =
     ## Read data from one or multiple streams, only returning entries
     ## with an ID greater than the last received ID reported by the
     ## caller. This command has an option to block if items are not
@@ -1783,7 +1783,7 @@
 #+end_src
 *** xreadgroup
 #+begin_src nim :noweb-ref xreadgroup
-  proc xreadgroup*(redis: Redis | AsyncRedis, group: string, consumer: string, keyids: seq[(string, string)], count: uint32 = 0, timeout: uint32 = 0, noack: bool = false): Future[seq[(string, seq[(string, TableRef[string, string])])]] {.multisync.} =
+  proc xreadgroup*(redis: Redis | AsyncRedis, group: string, consumer: string, keyids: seq[(string, string)], count: uint32 = 0, timeout: uint32 = 0, noack: bool = false): Future[seq[(string, seq[(string, StringTableRef)])]] {.multisync.} =
     ## The XREADGROUP command is a special version of the XREAD command
     ## with support for consumer groups.
     ##
@@ -1814,7 +1814,7 @@
 #+end_src
 *** xrevrange
 #+begin_src nim :noweb-ref xrevrange
-  proc xrevrange*(redis: Redis | AsyncRedis, key: string, stop: string = "+", start: string = "-", count: uint32 = 0): Future[seq[(string, TableRef[string, string])]] {.multisync.} =
+  proc xrevrange*(redis: Redis | AsyncRedis, key: string, stop: string = "+", start: string = "-", count: uint32 = 0): Future[seq[(string, StringTableRef)]] {.multisync.} =
     ## This command is exactly like XRANGE, but with the notable
     ## difference of returning the entries in reverse order, and also
     ## taking the start-end range in reverse order
@@ -2317,8 +2317,8 @@
     else:
       result = @[]
 
-  proc toTable(v: RedisValue): TableRef[string, string] =
-    result = newTable[string, string]()
+  proc toTable(v: RedisValue): StringTableRef =
+    result = newStringTable(modeCaseSensitive)
     if v.kind == rkArray:
       if v.array.isSome:
         let array = v.array.get
@@ -2327,7 +2327,7 @@
           let value = if array[(i shl 1) + 1].kind == rkBulkString and array[(i shl 1) + 1].bulkstr.isSome: array[(i shl 1) + 1].bulkstr.get else: ""
           result[field] = value
 
-  proc toSequenceTupleTable(v: RedisValue): seq[(string, TableRef[string, string])] =
+  proc toSequenceTupleTable(v: RedisValue): seq[(string, StringTableRef)] =
     result = @[]
     if v.kind == rkArray and v.array.isSome:
       for elements in v.array.get:

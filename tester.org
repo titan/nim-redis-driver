@@ -5,7 +5,7 @@
   import asyncdispatch
   import options
   import redis
-  import tables
+  import strtabs
 
   <<utilities>>
 
