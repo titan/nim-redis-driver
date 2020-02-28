@@ -1078,6 +1078,10 @@
 
   <<expire>>
 
+  <<flushall>>
+
+  <<flushdb>>
+
   <<get>>
 
   <<incr>>
@@ -1085,6 +1089,8 @@
   <<incrby>>
 
   <<rename>>
+
+  <<select>>
 
   <<set>>
 
@@ -1159,6 +1165,30 @@
     let resp = await redis.recv
     result = resp.toString
 #+end_src
+*** flushall
+#+begin_src nim :noweb-ref flushall
+  proc flushall*(redis: Redis | AsyncRedis): Future[string] {.multisync.} =
+    ## Delete all the keys of all the existing databases, not just the
+    ## currently selected one. This command never fails.
+    when redis is Redis:
+      await redis.send("FLUSHALL")
+    else:
+      await redis.send("FLUSHALL", "ASYNC")
+    let resp = await redis.recv
+    result = resp.toString.get
+#+end_src
+*** flushdb
+#+begin_src nim :noweb-ref flushdb
+  proc flushdb*(redis: Redis | AsyncRedis): Future[string] {.multisync.} =
+    ## Delete all the keys of the currently selected DB. This command
+    ## never fails.
+    when redis is Redis:
+      await redis.send("FLUSHDB")
+    else:
+      await redis.send("FLUSHDB", "ASYNC")
+    let resp = await redis.recv
+    result = resp.toString.get
+#+end_src
 *** incr
 #+begin_src nim :noweb-ref incr
   proc incr*(redis: Redis | AsyncRedis, key: string): Future[int] {.multisync.} =
@@ -1187,6 +1217,16 @@
       result = true
     else:
       result = false
+#+end_src
+*** select
+#+begin_src nim :noweb-ref select
+  proc select*(redis: Redis | AsyncRedis, index: int): Future[string] {.multisync.} =
+    ## Select the Redis logical database having the specified zero-based
+    ## numeric index. New connections always use the database 0.
+    await redis.send("SELECT", $index)
+    let resp = await redis.recv
+    let str = resp.toString
+    result = str.get()
 #+end_src
 *** set
 #+begin_src nim :noweb-ref set
