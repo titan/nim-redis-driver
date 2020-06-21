@@ -2,14 +2,14 @@
 
 * nimble
 #+begin_src nimscript :tangle ${BUILDDIR}/redis.nimble
-  version       = "0.1.1"
+  version       = "0.2.0"
   author        = "Titan"
   description   = "The redis driver"
   license       = "MIT"
 
   # Dependencies
 
-  requires "nim >= 1.0.0"
+  requires "nim >= 1.2.0"
 #+end_src
 * 编译设置
 #+begin_src nimscript :tangle ${BUILDDIR}/redis.nim.cfg

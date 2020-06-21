@@ -204,7 +204,7 @@
 #+end_src
 *** 数据定义
 #+begin_src nim :noweb-ref lexer-context
-  LexerContext = ref object
+  LexerContext = ref object of LexerModel
     input: char
     num: string
     str: string
@@ -218,27 +218,26 @@
     ctx.sctx.input = val
     ctx.sctx.input_type = sttype
     case sttype:
-      of stRedisValue: (ctx.sfsm, ctx.sctx) = redisvalue(ctx.sfsm, ctx.sctx)
-      of stRedisString: (ctx.sfsm, ctx.sctx) = redisstring(ctx.sfsm, ctx.sctx)
-      of stRedisError: (ctx.sfsm, ctx.sctx) = rediserror(ctx.sfsm, ctx.sctx)
-      of stRedisInt: (ctx.sfsm, ctx.sctx) = redisint(ctx.sfsm, ctx.sctx)
-      of stRedisNullBulkString: (ctx.sfsm, ctx.sctx) = redisnullbulkstring(ctx.sfsm, ctx.sctx)
-      of stRedisEmptyBulkString: (ctx.sfsm, ctx.sctx) = redisemptybulkstring(ctx.sfsm, ctx.sctx)
-      of stRedisBulkString: (ctx.sfsm, ctx.sctx) = redisbulkstring(ctx.sfsm, ctx.sctx)
-      of stRedisNullArray: (ctx.sfsm, ctx.sctx) = redisnullarray(ctx.sfsm, ctx.sctx)
-      of stRedisArray: (ctx.sfsm, ctx.sctx) = redisarray(ctx.sfsm, ctx.sctx)
-      of stPlus: (ctx.sfsm, ctx.sctx) = literal_token(ctx.sfsm, ctx.sctx, "+")
-      of stString: (ctx.sfsm, ctx.sctx) = my_string(ctx.sfsm, ctx.sctx)
-      of stCrLf: (ctx.sfsm, ctx.sctx) = literal_token(ctx.sfsm, ctx.sctx, "\r\n")
-      of stMinus: (ctx.sfsm, ctx.sctx) = literal_token(ctx.sfsm, ctx.sctx, "-")
-      of stColon: (ctx.sfsm, ctx.sctx) = literal_token(ctx.sfsm, ctx.sctx, ":")
-      of stNumber: (ctx.sfsm, ctx.sctx) = number(ctx.sfsm, ctx.sctx)
-      of stDollar: (ctx.sfsm, ctx.sctx) = literal_token(ctx.sfsm, ctx.sctx, "$")
-      of stZero: (ctx.sfsm, ctx.sctx) = literal_token(ctx.sfsm, ctx.sctx, "0")
-      of stNegative1: (ctx.sfsm, ctx.sctx) = literal_token(ctx.sfsm, ctx.sctx, "-1")
-      of stAsterisk: (ctx.sfsm, ctx.sctx) = literal_token(ctx.sfsm, ctx.sctx, "*")
-      of stRedisArrayItems: (ctx.sfsm, ctx.sctx) = redisarrayitems(ctx.sfsm, ctx.sctx)
-    ctx.sctx.fsm = ctx.sfsm
+      of stRedisValue: ctx.sctx = redisvalue(ctx.sfsm, ctx.sctx)
+      of stRedisString: ctx.sctx = redisstring(ctx.sfsm, ctx.sctx)
+      of stRedisError: ctx.sctx = rediserror(ctx.sfsm, ctx.sctx)
+      of stRedisInt: ctx.sctx = redisint(ctx.sfsm, ctx.sctx)
+      of stRedisNullBulkString: ctx.sctx = redisnullbulkstring(ctx.sfsm, ctx.sctx)
+      of stRedisEmptyBulkString: ctx.sctx = redisemptybulkstring(ctx.sfsm, ctx.sctx)
+      of stRedisBulkString: ctx.sctx = redisbulkstring(ctx.sfsm, ctx.sctx)
+      of stRedisNullArray: ctx.sctx = redisnullarray(ctx.sfsm, ctx.sctx)
+      of stRedisArray: ctx.sctx = redisarray(ctx.sfsm, ctx.sctx)
+      of stPlus: ctx.sctx = literal_token(ctx.sfsm, ctx.sctx, "+")
+      of stString: ctx.sctx = my_string(ctx.sfsm, ctx.sctx)
+      of stCrLf: ctx.sctx = literal_token(ctx.sfsm, ctx.sctx, "\r\n")
+      of stMinus: ctx.sctx = literal_token(ctx.sfsm, ctx.sctx, "-")
+      of stColon: ctx.sctx = literal_token(ctx.sfsm, ctx.sctx, ":")
+      of stNumber: ctx.sctx = number(ctx.sfsm, ctx.sctx)
+      of stDollar: ctx.sctx = literal_token(ctx.sfsm, ctx.sctx, "$")
+      of stZero: ctx.sctx = literal_token(ctx.sfsm, ctx.sctx, "0")
+      of stNegative1: ctx.sctx = literal_token(ctx.sfsm, ctx.sctx, "-1")
+      of stAsterisk: ctx.sctx = literal_token(ctx.sfsm, ctx.sctx, "*")
+      of stRedisArrayItems: ctx.sctx = redisarrayitems(ctx.sfsm, ctx.sctx)
 
   proc consume_queue[T](ctx: T) =
     while len(ctx.sctx.queue) > 0:
@@ -250,8 +249,7 @@
     consume_queue(ctx0)
     ctx0.sctx.input_type = stPlus
     ctx0.sctx.input = SyntaxValue(kind: skString, str: "+")
-    (ctx0.sfsm, ctx0.sctx) = literal_token(ctx0.sfsm, ctx0.sctx, "+")
-    ctx0.sctx.fsm = ctx0.sfsm
+    ctx0.sctx = literal_token(ctx0.sfsm, ctx0.sctx, "+")
     consume_queue(ctx0)
     result = ctx0
 
@@ -260,8 +258,7 @@
     consume_queue(ctx0)
     ctx0.sctx.input_type = stColon
     ctx0.sctx.input = SyntaxValue(kind: skString, str: ":")
-    (ctx0.sfsm, ctx0.sctx) = literal_token(ctx0.sfsm, ctx0.sctx, ":")
-    ctx0.sctx.fsm = ctx0.sfsm
+    ctx0.sctx = literal_token(ctx0.sfsm, ctx0.sctx, ":")
     consume_queue(ctx0)
     result = ctx0
 
@@ -270,8 +267,7 @@
     consume_queue(ctx0)
     ctx0.sctx.input_type = stDollar
     ctx0.sctx.input = SyntaxValue(kind: skString, str: "$")
-    (ctx0.sfsm, ctx0.sctx) = literal_token(ctx0.sfsm, ctx0.sctx, "$")
-    ctx0.sctx.fsm = ctx0.sfsm
+    ctx0.sctx = literal_token(ctx0.sfsm, ctx0.sctx, "$")
     consume_queue(ctx0)
     result = ctx0
 
@@ -280,8 +276,7 @@
     consume_queue(ctx0)
     ctx0.sctx.input_type = stAsterisk
     ctx0.sctx.input = SyntaxValue(kind: skString, str: "*")
-    (ctx0.sfsm, ctx0.sctx) = literal_token(ctx0.sfsm, ctx0.sctx, "*")
-    ctx0.sctx.fsm = ctx0.sfsm
+    ctx0.sctx = literal_token(ctx0.sfsm, ctx0.sctx, "*")
     consume_queue(ctx0)
     result = ctx0
 
@@ -300,8 +295,7 @@
     consume_queue(ctx0)
     ctx0.sctx.input_type = stMinus
     ctx0.sctx.input = SyntaxValue(kind: skString, str: "-")
-    (ctx0.sfsm, ctx0.sctx) = literal_token(ctx0.sfsm, ctx0.sctx, "-")
-    ctx0.sctx.fsm = ctx0.sfsm
+    ctx0.sctx = literal_token(ctx0.sfsm, ctx0.sctx, "-")
     consume_queue(ctx0)
     result = ctx0
 
@@ -323,8 +317,7 @@
       consume_queue(ctx0)
       ctx0.sctx.input_type = stZero
       ctx0.sctx.input = SyntaxValue(kind: skNumber, num: num)
-      (ctx0.sfsm, ctx0.sctx) = literal_token(ctx0.sfsm, ctx0.sctx, "0")
-      ctx0.sctx.fsm = ctx0.sfsm
+      ctx0.sctx = literal_token(ctx0.sfsm, ctx0.sctx, "0")
       ctx0.num = ""
       consume_queue(ctx0)
       result = ctx0
@@ -332,8 +325,7 @@
       consume_queue(ctx0)
       ctx0.sctx.input_type = stNegative1
       ctx0.sctx.input = SyntaxValue(kind: skNumber, num: num)
-      (ctx0.sfsm, ctx0.sctx) = literal_token(ctx0.sfsm, ctx0.sctx, "-1")
-      ctx0.sctx.fsm = ctx0.sfsm
+      ctx0.sctx = literal_token(ctx0.sfsm, ctx0.sctx, "-1")
       ctx0.num = ""
       consume_queue(ctx0)
       result = ctx0
@@ -341,8 +333,7 @@
       consume_queue(ctx0)
       ctx0.sctx.input_type = stNumber
       ctx0.sctx.input = SyntaxValue(kind: skNumber, num: num)
-      (ctx0.sfsm, ctx0.sctx) = number(ctx0.sfsm, ctx0.sctx)
-      ctx0.sctx.fsm = ctx0.sfsm
+      ctx0.sctx = number(ctx0.sfsm, ctx0.sctx)
       ctx0.num = ""
       consume_queue(ctx0)
       result = ctx0
@@ -352,8 +343,7 @@
     consume_queue(ctx0)
     ctx0.sctx.input_type = stString
     ctx0.sctx.input = SyntaxValue(kind: skString, str: $ctx.str)
-    (ctx0.sfsm, ctx0.sctx) = my_string(ctx0.sfsm, ctx0.sctx)
-    ctx0.sctx.fsm = ctx0.sfsm
+    ctx0.sctx = my_string(ctx0.sfsm, ctx0.sctx)
     ctx0.str = ""
     consume_queue(ctx0)
     result = ctx0
@@ -363,8 +353,7 @@
     consume_queue(ctx0)
     ctx0.sctx.input_type = stCrLf
     ctx0.sctx.input = SyntaxValue(kind: skString, str: "\r\n")
-    (ctx0.sfsm, ctx0.sctx) = literal_token(ctx0.sfsm, ctx0.sctx, "\r\n")
-    ctx0.sctx.fsm = ctx0.sfsm
+    ctx0.sctx = literal_token(ctx0.sfsm, ctx0.sctx, "\r\n")
     consume_queue(ctx0)
     result = ctx0
 
@@ -588,8 +577,7 @@
     of skRedisArrayItems: items: seq[RedisValue]
     of skEof: eof: int
 
-  SyntaxContext = ref object
-    fsm: SyntaxStateMachine[SyntaxContext]
+  SyntaxContext = ref object of SyntaxModel
     target: SyntaxValue
     input: SyntaxValue
     input_type: SyntaxTerminalType
@@ -605,14 +593,14 @@
 #+begin_src nim :noweb-ref syntax-action
   proc shift[T](ctx: T): T =
     var ctx0 = ctx
-    ctx0.state_stack.add(ctx0.fsm.state)
+    ctx0.state_stack.add(ctx0.state)
     ctx0.value_stack.add((ctx0.input_type, ctx0.input))
     return ctx0
 
   proc reduce_1_to_target[T](ctx: T): T =
     var ctx0 = ctx
     var (_, value) = ctx0.value_stack.pop
-    ctx0.fsm.state = ctx0.state_stack.pop
+    ctx0.state = ctx0.state_stack.pop
     ctx0.target = value
     return ctx0
 
@@ -624,7 +612,7 @@
   proc reduce_1_to_redisvalue[T](ctx: T): T =
     var ctx0 = ctx
     var (_, value) = ctx0.value_stack.pop
-    ctx0.fsm.state = ctx0.state_stack.pop
+    ctx0.state = ctx0.state_stack.pop
     ctx0.queue.addLast((stRedisValue, value))
     return ctx0
 
@@ -646,7 +634,7 @@
     discard ctx0.value_stack.pop
     discard ctx0.state_stack.pop
     discard ctx0.state_stack.pop
-    ctx0.fsm.state = ctx0.state_stack.pop
+    ctx0.state = ctx0.state_stack.pop
     ctx0.queue.addLast((stRedisString, SyntaxValue(kind: skRedisValue, val: RedisValue(kind: rkString, str: sv.str))))
     return ctx0
 
@@ -657,7 +645,7 @@
     discard ctx0.value_stack.pop
     discard ctx0.state_stack.pop
     discard ctx0.state_stack.pop
-    ctx0.fsm.state = ctx0.state_stack.pop
+    ctx0.state = ctx0.state_stack.pop
     ctx0.queue.addLast((stRedisError, SyntaxValue(kind: skRedisValue, val: RedisValue(kind: rkError, err: sv.str))))
     return ctx0
 
@@ -668,7 +656,7 @@
     discard ctx0.value_stack.pop
     discard ctx0.state_stack.pop
     discard ctx0.state_stack.pop
-    ctx0.fsm.state = ctx0.state_stack.pop
+    ctx0.state = ctx0.state_stack.pop
     ctx0.queue.addLast((stRedisInt, SyntaxValue(kind: skRedisValue, val: RedisValue(kind: rkInteger, val: sv.num))))
     return ctx0
 
@@ -683,7 +671,7 @@
     discard ctx0.state_stack.pop
     discard ctx0.state_stack.pop
     discard ctx0.state_stack.pop
-    ctx0.fsm.state = ctx0.state_stack.pop
+    ctx0.state = ctx0.state_stack.pop
     ctx0.queue.addLast((stRedisBulkString, SyntaxValue(kind: skRedisValue, val: RedisValue(kind: rkBulkString, bulkstr: some(sv1.str)))))
     return ctx0
 
@@ -696,7 +684,7 @@
     discard ctx0.state_stack.pop
     discard ctx0.state_stack.pop
     discard ctx0.state_stack.pop
-    ctx0.fsm.state = ctx0.state_stack.pop
+    ctx0.state = ctx0.state_stack.pop
     ctx0.queue.addLast((stRedisEmptyBulkString, SyntaxValue(kind: skRedisValue, val: RedisValue(kind: rkBulkString, bulkstr: some("")))))
     return ctx0
 
@@ -708,7 +696,7 @@
     discard ctx0.state_stack.pop
     discard ctx0.state_stack.pop
     var n = none(system.string)
-    ctx0.fsm.state = ctx0.state_stack.pop
+    ctx0.state = ctx0.state_stack.pop
     ctx0.queue.addLast((stRedisNullBulkString, SyntaxValue(kind: skRedisValue, val: RedisValue(kind: rkBulkString, bulkstr: n))))
     return ctx0
 
@@ -720,7 +708,7 @@
   proc reduce_1_to_redisarrayitems[T](ctx: T): T =
     var ctx0 = ctx
     var (_, item) = ctx0.value_stack.pop
-    ctx0.fsm.state = ctx0.state_stack.pop
+    ctx0.state = ctx0.state_stack.pop
     var array = @[item.val]
     ctx0.queue.addLast((stRedisArrayItems, SyntaxValue(kind: skRedisArrayItems, items: array)))
     return ctx0
@@ -734,7 +722,7 @@
     discard ctx0.state_stack.pop
     discard ctx0.state_stack.pop
     discard ctx0.state_stack.pop
-    ctx0.fsm.state = ctx0.state_stack.pop
+    ctx0.state = ctx0.state_stack.pop
     ctx0.queue.addLast((stRedisArray, SyntaxValue(kind: skRedisValue, val: RedisVAlue(kind: rkArray, array: some(arrayitems.items)))))
     return ctx0
 
@@ -748,7 +736,7 @@
     var (_, item) = ctx0.value_stack.pop
     var (sttype, array) = ctx0.value_stack.pop
     discard ctx0.state_stack.pop
-    ctx0.fsm.state = ctx0.state_stack.pop
+    ctx0.state = ctx0.state_stack.pop
     array.items.add(item.val)
     ctx0.queue.addLast((sttype, array))
     return ctx0
@@ -760,7 +748,7 @@
     discard ctx0.value_stack.pop
     discard ctx0.state_stack.pop
     discard ctx0.state_stack.pop
-    ctx0.fsm.state = ctx0.state_stack.pop
+    ctx0.state = ctx0.state_stack.pop
     ctx0.queue.addLast((stRedisArray, SyntaxValue(kind: skRedisValue, val: RedisVAlue(kind: rkArray, array: some[seq[RedisValue]](@[])))))
     return ctx0
 
@@ -771,7 +759,7 @@
     discard ctx0.value_stack.pop
     discard ctx0.state_stack.pop
     discard ctx0.state_stack.pop
-    ctx0.fsm.state = ctx0.state_stack.pop
+    ctx0.state = ctx0.state_stack.pop
     ctx0.queue.addLast((stRedisNullArray, SyntaxValue(kind: skRedisValue, val: RedisValue(kind: rkArray, array: none(seq[RedisValue])))))
     return ctx0
 #+end_src
@@ -1022,7 +1010,7 @@
           if response == "":
             raise newException(RedisError, "Server closed connection prematurely")
           <<execute-fsm>>
-        (lfsm, lctx) = eof[LexerContext](lfsm, lctx)
+        lctx = eof[LexerContext](lfsm, lctx)
         return lctx.sctx.target.val
       else:
         while lctx.sctx.done == false:
@@ -1030,7 +1018,7 @@
           if response == "":
             raise newException(RedisError, "Server closed connection prematurely")
           <<execute-fsm>>
-        (lfsm, lctx) = eof[LexerContext](lfsm, lctx)
+        lctx = eof[LexerContext](lfsm, lctx)
         result = lctx.sctx.target.val
         this.current_command = none(string)
         if len(this.send_queue) > 0:
@@ -1041,9 +1029,9 @@
 #+end_src
 *** 初始化状态机
 #+begin_src nim :noweb-ref init-fsm
-  var sfsm = newSyntaxStateMachine[SyntaxContext](this.syntax_action_delegate, this.syntax_guard_delegate)
+  let sfsm = newSyntaxStateMachine[SyntaxContext](this.syntax_action_delegate, this.syntax_guard_delegate)
   var sctx: SyntaxContext = new(SyntaxContext)
-  sctx.fsm = sfsm
+  sctx.state = 1
   sctx.state_stack = @[]
   sctx.value_stack = @[]
   sctx.queue = initDeque[(SyntaxTerminalType, SyntaxValue)]()
@@ -1052,18 +1040,19 @@
   sctx.done = false
 
   var lctx: LexerContext = new(LexerContext)
+  lctx.state = 1
   lctx.num = ""
   lctx.str = ""
   lctx.strlen = 0
   lctx.sfsm = sfsm
   lctx.sctx = sctx
-  var lfsm = newLexerStateMachine[LexerContext](this.lexer_action_delegate, this.lexer_guard_delegate)
+  let lfsm = newLexerStateMachine[LexerContext](this.lexer_action_delegate, this.lexer_guard_delegate)
 #+end_src
 *** 执行状态机
 #+begin_src nim :noweb-ref execute-fsm
   for ch in response:
     lctx.input = ch
-    (lfsm, lctx) = input[LexerContext](lfsm, lctx, ch)
+    lctx = input[LexerContext](lfsm, lctx, ch)
 #+end_src
 ** key/value
 *** 框架
